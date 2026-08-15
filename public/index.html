@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scratch 扩展提交工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f23;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #ff9800;
+            font-size: 2em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+        .card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #2a2a4a;
+        }
+        .card h2 {
+            color: #ff9800;
+            margin-bottom: 16px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #ccc;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        label .required {
+            color: #ff5252;
+        }
+        label .optional {
+            color: #666;
+            font-weight: normal;
+            font-size: 0.85em;
+        }
+        input[type="text"],
+        input[type="url"],
+        textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #3a3a5a;
+            background: #0f0f23;
+            color: #e0e0e0;
+            font-size: 0.95em;
+            transition: border-color 0.2s;
+        }
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #ff9800;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-input-wrapper input[type="file"] {
+            display: none;
+        }
+        .file-input-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px dashed #3a3a5a;
+            background: #0f0f23;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9em;
+        }
+        .file-input-label:hover {
+            border-color: #ff9800;
+            color: #ff9800;
+        }
+        .file-input-label.has-file {
+            border-style: solid;
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+        .image-preview {
+            margin-top: 10px;
+            text-align: center;
+        }
+        .image-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            border: 1px solid #3a3a5a;
+        }
+        .image-info {
+            margin-top: 6px;
+            font-size: 0.85em;
+            color: #888;
+        }
+        .image-info.ok { color: #4caf50; }
+        .image-info.warn { color: #ff9800; }
+        .image-info.error { color: #ff5252; }
+        .author-group {
+            background: #0f0f23;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 10px;
+            border: 1px solid #2a2a4a;
+        }
+        .author-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .author-header span {
+            color: #ff9800;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+        .btn-remove {
+            background: #ff5252;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .btn-remove:hover { background: #d32f2f; }
+        .btn-add {
+            background: #3a3a5a;
+            color: #ccc;
+            border: 1px dashed #555;
+            border-radius: 8px;
+            padding: 10px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        .btn-add:hover {
+            border-color: #ff9800;
+            color: #ff9800;
+        }
+        .btn-submit {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #ff9800, #ff5722);
+            color: white;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4);
+        }
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #ff9800;
+        }
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+        .status-message {
+            padding: 16px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.95em;
+            display: none;
+        }
+        .status-message.success {
+            display: block;
+            background: #1b3a1b;
+            border: 1px solid #4caf50;
+            color: #4caf50;
+        }
+        .status-message.error {
+            display: block;
+            background: #3a1b1b;
+            border: 1px solid #ff5252;
+            color: #ff5252;
+        }
+        .status-message.loading {
+            display: block;
+            background: #1a2a3a;
+            border: 1px solid #2196f3;
+            color: #2196f3;
+        }
+        .status-message a {
+            color: inherit;
+            text-decoration: underline;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #2a2a4a;
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-bar.active { display: block; }
+        .progress-bar .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff9800, #ff5722);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .help-text {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 4px;
+            display: block;
+        }
+        .toggle-section {
+            cursor: pointer;
+            user-select: none;
+        }
+        .toggle-section::after {
+            content: ' ▼';
+            font-size: 0.8em;
+        }
+        .toggle-section.open::after {
+            content: ' ▲';
+        }
+        .collapsible {
+            display: none;
+        }
+        .collapsible.open {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐱 Scratch 扩展提交工具</h1>
+        <p class="subtitle">填写扩展信息，自动生成文件并提交 Pull Request</p>
+
+        <form id="submitForm">
+            <!-- 基本信息 -->
+            <div class="card">
+                <h2>📋 基本信息</h2>
+                <div class="form-group">
+                    <label>Slug <span class="required">*</span></label>
+                    <span class="help-text">纯英文标识符，与扩展JS文件名相同（不含.js）</span>
+                    <input type="text" id="slug" placeholder="例如: my-awesome-extension" required pattern="[a-zA-Z0-9_-]+">
+                </div>
+                <div class="form-group">
+                    <label>扩展名称 <span class="required">*</span></label>
+                    <input type="text" id="name" placeholder="例如: 我的超棒扩展" required>
+                </div>
+                <div class="form-group">
+                    <label>扩展描述（英文） <span class="required">*</span></label>
+                    <textarea id="description" placeholder="用英文描述你的扩展功能..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>扩展 ID <span class="required">*</span></label>
+                    <span class="help-text">通常与slug相同，纯英文</span>
+                    <input type="text" id="extId" placeholder="例如: myAwesomeExtension" required pattern="[a-zA-Z0-9_-]+">
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>版本号 <span class="optional">（可选）</span></label>
+                        <input type="text" id="version" placeholder="例如: 1.0.0">
+                    </div>
+                    <div class="form-group">
+                        <label>许可证 <span class="optional">（可选）</span></label>
+                        <input type="text" id="license" placeholder="例如: MIT, AGPL 3.0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 翻译信息 -->
+            <div class="card">
+                <h2 class="toggle-section" onclick="toggleSection('translations')">🌐 翻译信息（可选）</h2>
+                <div class="collapsible" id="translations">
+                    <div class="form-group">
+                        <label>中文名称</label>
+                        <input type="text" id="nameZh" placeholder="中文名称">
+                    </div>
+                    <div class="form-group">
+                        <label>英文名称（翻译字段）</label>
+                        <input type="text" id="nameEn" placeholder="English name">
+                    </div>
+                    <div class="form-group">
+                        <label>中文描述</label>
+                        <textarea id="descZh" placeholder="中文描述内容..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>英文描述（翻译字段）</label>
+                        <textarea id="descEn" placeholder="English description..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 作者信息 -->
+            <div class="card">
+                <h2>👤 作者信息</h2>
+                <div id="authorsContainer">
+                    <div class="author-group" data-index="0">
+                        <div class="author-header">
+                            <span>作者 #1</span>
+                        </div>
+                        <div class="form-group">
+                            <label>名称 <span class="required">*</span></label>
+                            <input type="text" class="author-name" placeholder="作者名称" required>
+                        </div>
+                        <div class="form-group">
+                            <label>链接 <span class="optional">（可选）</span></label>
+                            <input type="url" class="author-link" placeholder="https://github.com/xxx">
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-add" onclick="addAuthor()">+ 添加作者</button>
+            </div>
+
+            <!-- 文件上传 -->
+            <div class="card">
+                <h2>📎 文件上传</h2>
+                <div class="form-group">
+                    <label>扩展 JS 文件 <span class="required">*</span></label>
+                    <span class="help-text">必须是 {slug}.js，例如 slug 为 "kylin" 则文件名为 "kylin.js"</span>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="jsFile" accept=".js,application/javascript" required>
+                        <label for="jsFile" class="file-input-label" id="jsLabel">
+                            📁 点击选择 .js 文件
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>封面图片 <span class="required">*</span></label>
+                    <span class="help-text">建议 2:1 比例，不匹配将自动居中裁剪</span>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="coverImage" accept="image/*" required>
+                        <label for="coverImage" class="file-input-label" id="coverLabel">
+                            🖼️ 点击选择封面图片
+                        </label>
+                    </div>
+                    <div class="image-preview" id="imagePreview"></div>
+                    <div class="image-info" id="imageInfo"></div>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="hasDocs">
+                        <label for="hasDocs">提供文档（HTML 格式）</label>
+                    </div>
+                    <div id="docsUpload" style="display:none; margin-top: 10px;">
+                        <div class="file-input-wrapper">
+                            <input type="file" id="docsFile" accept=".html,text/html">
+                            <label for="docsFile" class="file-input-label" id="docsLabel">
+                                📄 点击选择文档 HTML 文件
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="hasSamples">
+                        <label for="hasSamples">提供实例作品（.sb3 格式）</label>
+                    </div>
+                    <div id="samplesUpload" style="display:none; margin-top: 10px;">
+                        <div class="file-input-wrapper">
+                            <input type="file" id="sampleFile" accept=".sb3,application/zip">
+                            <label for="sampleFile" class="file-input-label" id="sampleLabel">
+                                🎮 点击选择实例 .sb3 文件
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 提交按钮 -->
+            <button type="submit" class="btn-submit" id="submitBtn">
+                🚀 提交扩展并创建 PR
+            </button>
+
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="status-message" id="statusMessage"></div>
+        </form>
+    </div>
+
+    <script>
+        'use strict';
+
+        // ---- 工具函数 ----
+        function toggleSection(id) {
+            const el = document.getElementById(id);
+            const header = el.previousElementSibling;
+            el.classList.toggle('open');
+            header.classList.toggle('open');
+        }
+
+        function showStatus(msg, type, link) {
+            const el = document.getElementById('statusMessage');
+            el.className = 'status-message ' + type;
+            el.innerHTML = link ? msg + '<br><a href="' + link + '" target="_blank">' + link + '</a>' : msg;
+        }
+
+        function setProgress(pct) {
+            document.getElementById('progressBar').classList.add('active');
+            document.getElementById('progressFill').style.width = pct + '%';
+        }
+
+        // ---- 作者管理 ----
+        var authorCount = 1;
+        function addAuthor() {
+            if (authorCount >= 5) {
+                alert('最多添加5位作者');
+                return;
+            }
+            const container = document.getElementById('authorsContainer');
+            const idx = authorCount;
+            const div = document.createElement('div');
+            div.className = 'author-group';
+            div.dataset.index = idx;
+            div.innerHTML = `
+                <div class="author-header">
+                    <span>作者 #${idx + 1}</span>
+                    <button type="button" class="btn-remove" onclick="removeAuthor(${idx})">删除</button>
+                </div>
+                <div class="form-group">
+                    <label>名称 <span class="required">*</span></label>
+                    <input type="text" class="author-name" placeholder="作者名称" required>
+                </div>
+                <div class="form-group">
+                    <label>链接 <span class="optional">（可选）</span></label>
+                    <input type="url" class="author-link" placeholder="https://github.com/xxx">
+                </div>
+            `;
+            container.appendChild(div);
+            authorCount++;
+        }
+
+        function removeAuthor(idx) {
+            const el = document.querySelector('.author-group[data-index="' + idx + '"]');
+            if (el) el.remove();
+        }
+
+        // ---- 文件选择 UI ----
+        function setupFileInput(inputId, labelId, text) {
+            const input = document.getElementById(inputId);
+            const label = document.getElementById(labelId);
+            input.addEventListener('change', function() {
+                if (input.files.length > 0) {
+                    label.classList.add('has-file');
+                    label.textContent = '✅ ' + input.files[0].name;
+                } else {
+                    label.classList.remove('has-file');
+                    label.textContent = text;
+                }
+            });
+        }
+
+        setupFileInput('jsFile', 'jsLabel', '📁 点击选择 .js 文件');
+        setupFileInput('docsFile', 'docsLabel', '📄 点击选择文档 HTML 文件');
+        setupFileInput('sampleFile', 'sampleLabel', '🎮 点击选择实例 .sb3 文件');
+
+        // 封面图预览 + 比例检测
+        var coverImageData = null;
+        document.getElementById('coverImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const label = document.getElementById('coverLabel');
+            const preview = document.getElementById('imagePreview');
+            const info = document.getElementById('imageInfo');
+
+            if (!file) {
+                label.classList.remove('has-file');
+                label.textContent = '🖼️ 点击选择封面图片';
+                preview.innerHTML = '';
+                info.textContent = '';
+                info.className = 'image-info';
+                coverImageData = null;
+                return;
+            }
+
+            label.classList.add('has-file');
+            label.textContent = '✅ ' + file.name;
+
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const img = new Image();
+                img.onload = function() {
+                    const ratio = img.width / img.height;
+                    preview.innerHTML = '<img src="' + ev.target.result + '" alt="预览">';
+
+                    if (Math.abs(ratio - 2) < 0.05) {
+                        info.className = 'image-info ok';
+                        info.textContent = '✅ 比例正确 (' + img.width + '×' + img.height + ', 比例 ' + ratio.toFixed(2) + ':1) — 无需裁剪';
+                    } else {
+                        info.className = 'image-info warn';
+                        info.textContent = '⚠️ 当前比例 ' + ratio.toFixed(2) + ':1，目标 2:1。提交时将自动居中裁剪。';
+                    }
+                };
+                img.src = ev.target.result;
+                coverImageData = { file: file, dataUrl: ev.target.result };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 文档/实例复选框
+        document.getElementById('hasDocs').addEventListener('change', function(e) {
+            document.getElementById('docsUpload').style.display = e.target.checked ? 'block' : 'none';
+            document.getElementById('docsFile').required = e.target.checked;
+        });
+        document.getElementById('hasSamples').addEventListener('change', function(e) {
+            document.getElementById('samplesUpload').style.display = e.target.checked ? 'block' : 'none';
+            document.getElementById('sampleFile').required = e.target.checked;
+        });
+
+        // Slug 同步到 ID 字段
+        document.getElementById('slug').addEventListener('blur', function(e) {
+            const idField = document.getElementById('extId');
+            if (!idField.value) {
+                idField.value = e.target.value;
+            }
+        });
+
+        // ---- 图片裁剪为 2:1 ----
+        function cropImageTo2x1(file) {
+            return new Promise(function(resolve) {
+                const img = new Image();
+                img.onload = function() {
+                    const targetRatio = 2;
+                    const currentRatio = img.width / img.height;
+                    let sx, sy, sw, sh;
+
+                    if (currentRatio > targetRatio) {
+                        // 图片太宽 → 从中间裁切宽度
+                        sh = img.height;
+                        sw = img.height * targetRatio;
+                        sx = (img.width - sw) / 2;
+                        sy = 0;
+                    } else {
+                        // 图片太高 → 从中间裁切高度
+                        sw = img.width;
+                        sh = img.width / targetRatio;
+                        sx = 0;
+                        sy = (img.height - sh) / 2;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = sw;
+                    canvas.height = sh;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+                    canvas.toBlob(function(blob) {
+                        const baseName = file.name.replace(/\.[^.]+$/, '');
+                        const croppedFile = new File([blob], baseName + '.png', {
+                            type: 'image/png'
+                        });
+                        resolve(croppedFile);
+                    }, 'image/png');
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // ---- 文件转 base64 ----
+        function fileToBase64(file) {
+            return new Promise(function(resolve, reject) {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    const result = reader.result;
+                    const base64 = result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ---- 提交 ----
+        document.getElementById('submitForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ 处理中...';
+
+            try {
+                setProgress(10);
+                showStatus('正在读取文件...', 'loading');
+
+                // 收集表单数据
+                const slug = document.getElementById('slug').value.trim();
+                const name = document.getElementById('name').value.trim();
+                const description = document.getElementById('description').value.trim();
+                const extId = document.getElementById('extId').value.trim();
+                const version = document.getElementById('version').value.trim();
+                const license = document.getElementById('license').value.trim();
+
+                // 翻译
+                const nameZh = document.getElementById('nameZh').value.trim();
+                const nameEn = document.getElementById('nameEn').value.trim();
+                const descZh = document.getElementById('descZh').value.trim();
+                const descEn = document.getElementById('descEn').value.trim();
+
+                // 作者
+                const authors = [];
+                const authorGroups = document.querySelectorAll('.author-group');
+                for (let i = 0; i < authorGroups.length; i++) {
+                    const group = authorGroups[i];
+                    const aname = group.querySelector('.author-name').value.trim();
+                    const alink = group.querySelector('.author-link').value.trim();
+                    if (aname) {
+                        const author = { name: aname };
+                        if (alink) author.link = alink;
+                        authors.push(author);
+                    }
+                }
+
+                if (authors.length === 0) {
+                    throw new Error('至少需要一位作者');
+                }
+
+                // 文件
+                const jsFile = document.getElementById('jsFile').files[0];
+                const coverFile = document.getElementById('coverImage').files[0];
+                const hasDocs = document.getElementById('hasDocs').checked;
+                const hasSamples = document.getElementById('hasSamples').checked;
+                const docsFile = hasDocs ? document.getElementById('docsFile').files[0] : null;
+                const sampleFile = hasSamples ? document.getElementById('sampleFile').files[0] : null;
+
+                // 验证 JS 文件名
+                const expectedJsName = slug + '.js';
+                if (jsFile.name !== expectedJsName) {
+                    throw new Error('JS 文件名必须为 ' + expectedJsName + '，当前为 ' + jsFile.name);
+                }
+
+                setProgress(25);
+                showStatus('正在处理封面图片...', 'loading');
+
+                // 裁剪封面图
+                const croppedCover = await cropImageTo2x1(coverFile);
+                const coverExt = croppedCover.name.split('.').pop() || 'png';
+
+                setProgress(40);
+                showStatus('正在编码文件...', 'loading');
+
+                // 转 base64
+                const jsContent = await fileToBase64(jsFile);
+                const coverContent = await fileToBase64(croppedCover);
+                let docsContent = null;
+                let sampleContent = null;
+
+                if (docsFile) {
+                    docsContent = await fileToBase64(docsFile);
+                }
+                if (sampleFile) {
+                    sampleContent = await fileToBase64(sampleFile);
+                }
+
+                setProgress(60);
+                showStatus('正在提交到服务器...', 'loading');
+
+                // 构建提交数据
+                const payload = {
+                    slug: slug,
+                    name: name,
+                    description: description,
+                    extId: extId,
+                    version: version || undefined,
+                    license: license || undefined,
+                    authors: authors,
+                    coverExt: coverExt,
+                    jsContent: jsContent,
+                    coverContent: coverContent,
+                    docs: hasDocs,
+                    docsContent: docsContent,
+                    hasSamples: hasSamples,
+                    sampleContent: sampleContent
+                };
+
+                // 翻译
+                if (nameZh || nameEn || descZh || descEn) {
+                    payload.translations = {};
+                    if (nameZh || nameEn) {
+                        payload.translations.nameTranslations = {};
+                        if (nameZh) payload.translations.nameTranslations['zh-cn'] = nameZh;
+                        if (nameEn) payload.translations.nameTranslations['en'] = nameEn;
+                    }
+                    if (descZh || descEn) {
+                        payload.translations.descriptionTranslations = {};
+                        if (descZh) payload.translations.descriptionTranslations['zh-cn'] = descZh;
+                        if (descEn) payload.translations.descriptionTranslations['en'] = descEn;
+                    }
+                }
+
+                // 发送到 Netlify Function
+                const resp = await fetch('/.netlify/functions/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                setProgress(85);
+
+                const result = await resp.json();
+
+                if (!resp.ok) {
+                    throw new Error(result.error || '提交失败');
+                }
+
+                setProgress(100);
+                showStatus(
+                    '✅ 提交成功！PR 已创建：#' + result.pullRequestNumber + ' — ' + result.pullRequestTitle,
+                    'success',
+                    result.pullRequestUrl
+                );
+                btn.textContent = '🎉 提交成功！可再次提交';
+
+            } catch (err) {
+                console.error(err);
+                showStatus('❌ 错误：' + err.message, 'error');
+                btn.textContent = '🚀 提交扩展并创建 PR';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

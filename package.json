@@ -1,0 +1,14 @@
+{
+  "name": "scratch-ext-submit",
+  "version": "1.0.0",
+  "description": "Scratch扩展仓库提交工具 - 通过网页表单提交扩展信息并自动创建PR",
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev",
+    "deploy": "netlify deploy --prod"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
