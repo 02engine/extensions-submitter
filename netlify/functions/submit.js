@@ -57,7 +57,15 @@ async function getInstallationToken(jwt, installationId) {
 
     if (!resp.ok) {
         const errText = await resp.text();
-        throw new Error('获取安装令牌失败: ' + resp.status + ' ' + errText);
+        let hint = '';
+        if (resp.status === 401) {
+            hint = '（原因：GitHub 拒绝该 JWT——通常是 GITHUB_APP_ID 与私钥不匹配，' +
+                   '或 GITHUB_APP_ID 填错，或私钥已轮换但环境变量还是旧 key。请登录 github.com/settings/apps 核对）';
+        } else if (resp.status === 404) {
+            hint = '（原因：GITHUB_INSTALLATION_ID 不存在，或该 App 未安装到目标账号/组织。' +
+                   '请到 https://github.com/settings/apps → Install App 查看真实 Installation ID）';
+        }
+        throw new Error('获取安装令牌失败: ' + resp.status + ' ' + errText + hint);
     }
 
     const data = await resp.json();
@@ -201,6 +209,7 @@ export async function handler(event, context) {
         console.log(`[submit] 开始处理: slug=${slug}, name=${name}`);
 
         // 创建 JWT → 换安装令牌
+        console.log(`[submit] 使用 App ID=${appId} 签发 JWT（请与 GitHub 后台该 App 的 ID 核对）`);
         const jwt = createJWT(appId, privateKey);
         const token = await getInstallationToken(jwt, installationId);
         console.log('[submit] 安装令牌获取成功');
