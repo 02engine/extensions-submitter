@@ -163,6 +163,11 @@ netlify deploy --prod
 
 3. 添加完后，回到站点面板 → **Deploys** → **Trigger deploy** → **Deploy site**
    - 必须重新部署才能让环境变量生效！
+> ⚠️ 两个必检项（最常见的"配置了却报未配置"的原因）：
+> 1. **作用域（Scope）必须包含 Functions**：Netlify 后台添加变量时可选作用域，如果默认只勾了 **Builds**，服务器函数运行时就读不到，会一直报 `服务器环境变量未配置完整`。请把每个变量的作用域设为 **Functions**（或同时包含 Functions）。
+> 2. **改完环境变量后必须重新部署**：函数的环境变量是在**构建/部署时注入**的（不是运行时实时读取）。改完请到 **Deploys → Trigger deploy → Deploy site**。
+>
+> 若仍报错，新版后端已会在报错里**明确指出缺少的变量名**（如 `缺少: GITHUB_INSTALLATION_ID`），照着补即可。
 
 ### 第七步：更新 GitHub App 的 Homepage URL
 
@@ -223,6 +228,11 @@ netlify dev
 ```
 
 ## ❓ 常见问题
+**Q: 一直提示 "服务器环境变量未配置完整，缺少: XXX"，但我明明配置了？**
+- **作用域没选对**：把变量作用域从 `Builds` 改为/加上 `Functions`（函数运行时才能读到）。
+- **没重新部署**：函数的环境变量在部署/build 时注入，改完后必须 **Trigger deploy → Deploy site**。
+- **值是空串或纯空格**：后端会 trim 判空，请确认填的是真实值。
+- 报错里会直接列出缺失的变量名，照提示补上缺失项即可。
 
 **Q: 提交时报错 "获取安装令牌失败"**
 - 检查 `GITHUB_APP_ID` 和 `GITHUB_PRIVATE_KEY` 是否正确

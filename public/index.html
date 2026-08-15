@@ -759,7 +759,12 @@
                 const result = await resp.json();
 
                 if (!resp.ok) {
-                    throw new Error(result.error || '提交失败');
+                    // 环境变量缺失时，同时列出缺失的变量名，方便排查
+                    let msg = result.error || '提交失败';
+                    if (result.missing && result.missing.length) {
+                        msg += '（缺失: ' + result.missing.join(', ') + '）';
+                    }
+                    throw new Error(msg);
                 }
 
                 setProgress(100);
