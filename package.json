@@ -7,7 +7,9 @@
     "dev": "netlify dev",
     "deploy": "netlify deploy --prod"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@octokit/app": "^16.0.0"
+  },
   "devDependencies": {
     "netlify-cli": "^17.0.0"
   }
