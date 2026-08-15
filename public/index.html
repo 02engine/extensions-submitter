@@ -756,11 +756,27 @@
 
                 setProgress(85);
 
-                const result = await resp.json();
+                const rawText = await resp.text();
 
-                if (!resp.ok) {
+                // 先按纯文本读取，再安全解析 JSON。
+                // 若返回的根本不是 JSON（比如函数未部署时被 SPA 重定向 /*→/index.html 拦下，
+                // 或返回了网关/错误页 HTML），resp.json() 会直接抛 "unexpected character at line 1 column 1"。
+                // 这里用 try/catch 稳住，并把真实 HTTP 状态码和原因提示给用户。
+                let result = {};
+                try {
+                    result = rawText ? JSON.parse(rawText) : {};
+                } catch (e) {
+                    console.error('提交响应不是合法 JSON，前 300 字符:', rawText.slice(0, 300));
+                    result = {
+                        error: '服务器返回了无法解析的内容' +
+                               (resp.ok ? '' : '（HTTP ' + resp.status + '）') +
+                               '。请确认函数已成功部署（Netlify「Deploys」里 Functions 状态正常），且请求未被重定向拦截。'
+                    };
+                }
+
+                if (!resp.ok || result.error) {
                     // 环境变量缺失时，同时列出缺失的变量名，方便排查
-                    let msg = result.error || '提交失败';
+                    let msg = result.error || ('请求失败（HTTP ' + resp.status + '）');
                     if (result.missing && result.missing.length) {
                         msg += '（缺失: ' + result.missing.join(', ') + '）';
                     }
