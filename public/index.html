@@ -6,365 +6,531 @@
     <title>Scratch 扩展提交工具</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #00baad;
+            --primary-hover: #00a89c;
+            --primary-light: rgba(0, 186, 173, 0.08);
+
+            --bg-primary: #f7f9f4;
+            --bg-secondary: #eef2e8;
+            --bg-tertiary: #ffffff;
+            --bg-input: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #515154;
+            --text-tertiary: #86868b;
+            --text-quaternary: #aeaeb2;
+            --border: #d8ddd0;
+            --border-light: #e5ebe0;
+
+            --success: #34c759;
+            --warning: #b8860b;
+            --error: #d93025;
+            --error-bg: #fef2f2;
+            --success-bg: #f0fdf4;
+            --info-bg: #f0f9ff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1d1a;
+                --bg-secondary: #222522;
+                --bg-tertiary: #2a2d2a;
+                --bg-input: #2a2d2a;
+                --text-primary: #f5f5f7;
+                --text-secondary: #a1a1a6;
+                --text-tertiary: #6e6e73;
+                --text-quaternary: #48484a;
+                --border: #3a3d3a;
+                --border-light: #2f322f;
+
+                --error-bg: #2d1b1b;
+                --success-bg: #1b2d1b;
+                --info-bg: #1b2d3a;
+            }
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f0f23;
-            color: #e0e0e0;
-            min-height: 100vh;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            transition: background 0.3s ease, color 0.3s ease;
         }
+
         .container {
-            max-width: 800px;
+            max-width: 720px;
             margin: 0 auto;
+            padding: 60px 24px 80px;
         }
+
+        .header {
+            margin-bottom: 48px;
+        }
+
         h1 {
-            text-align: center;
-            margin-bottom: 10px;
-            color: #ff9800;
-            font-size: 2em;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 6px;
         }
+
         .subtitle {
-            text-align: center;
-            color: #888;
-            margin-bottom: 30px;
-            font-size: 0.95em;
+            font-size: 16px;
+            color: var(--text-secondary);
+            font-weight: 400;
         }
-        .card {
-            background: #1a1a2e;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 20px;
-            border: 1px solid #2a2a4a;
+
+        .section {
+            padding: 32px 0;
+            border-bottom: 1px solid var(--border-light);
         }
-        .card h2 {
-            color: #ff9800;
-            margin-bottom: 16px;
-            font-size: 1.2em;
+
+        .section:last-of-type {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+        }
+
+        .section-title-row {
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: space-between;
+            margin-bottom: 24px;
         }
+
+        .toggle-btn {
+            font-size: 14px;
+            color: var(--primary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 0;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+
+        .toggle-btn:hover {
+            color: var(--primary-hover);
+        }
+
+        /* 可打断动画的折叠区域 */
+        .collapsible {
+            overflow: hidden;
+            height: 0;
+            transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: height;
+        }
+
+        .collapsible-inner {
+            padding-bottom: 4px;
+        }
+
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
         }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
         label {
             display: block;
-            margin-bottom: 6px;
-            color: #ccc;
-            font-size: 0.9em;
+            font-size: 13px;
             font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            letter-spacing: -0.01em;
         }
-        label .required {
-            color: #ff5252;
+
+        .required {
+            color: var(--error);
         }
-        label .optional {
-            color: #666;
-            font-weight: normal;
-            font-size: 0.85em;
+
+        .help-text {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+            line-height: 1.4;
         }
+
         input[type="text"],
         input[type="url"],
         textarea {
             width: 100%;
             padding: 10px 14px;
-            border-radius: 8px;
-            border: 1px solid #3a3a5a;
-            background: #0f0f23;
-            color: #e0e0e0;
-            font-size: 0.95em;
-            transition: border-color 0.2s;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.3s ease;
         }
+
         input:focus,
         textarea:focus {
             outline: none;
-            border-color: #ff9800;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
         }
+
         textarea {
             resize: vertical;
-            min-height: 70px;
+            min-height: 68px;
         }
+
         .file-input-wrapper {
             position: relative;
-            display: inline-block;
-            width: 100%;
         }
+
         .file-input-wrapper input[type="file"] {
             display: none;
         }
+
         .file-input-label {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 12px;
-            border-radius: 8px;
-            border: 2px dashed #3a3a5a;
-            background: #0f0f23;
-            color: #888;
+            gap: 10px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 1.5px dashed var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
             cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.9em;
+            transition: all 0.15s ease;
+            font-size: 14px;
+            font-weight: 500;
         }
+
         .file-input-label:hover {
-            border-color: #ff9800;
-            color: #ff9800;
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
         }
+
         .file-input-label.has-file {
             border-style: solid;
-            border-color: #4caf50;
-            color: #4caf50;
+            border-color: var(--primary);
+            background: var(--primary-light);
+            color: var(--primary);
         }
+
         .image-preview {
-            margin-top: 10px;
-            text-align: center;
+            margin-top: 12px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--bg-secondary);
         }
+
         .image-preview img {
-            max-width: 100%;
-            max-height: 200px;
-            border-radius: 8px;
-            border: 1px solid #3a3a5a;
+            width: 100%;
+            max-height: 220px;
+            object-fit: contain;
+            display: block;
         }
+
         .image-info {
-            margin-top: 6px;
-            font-size: 0.85em;
-            color: #888;
+            margin-top: 8px;
+            font-size: 12px;
+            line-height: 1.4;
         }
-        .image-info.ok { color: #4caf50; }
-        .image-info.warn { color: #ff9800; }
-        .image-info.error { color: #ff5252; }
+
+        .image-info.ok { color: var(--success); }
+        .image-info.warn { color: var(--warning); }
+        .image-info.error { color: var(--error); }
+
         .author-group {
-            background: #0f0f23;
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 10px;
-            border: 1px solid #2a2a4a;
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-tertiary);
+            margin-bottom: 12px;
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
+
         .author-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 14px;
         }
+
         .author-header span {
-            color: #ff9800;
-            font-weight: 500;
-            font-size: 0.9em;
-        }
-        .btn-remove {
-            background: #ff5252;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 4px 10px;
-            cursor: pointer;
-            font-size: 0.8em;
-        }
-        .btn-remove:hover { background: #d32f2f; }
-        .btn-add {
-            background: #3a3a5a;
-            color: #ccc;
-            border: 1px dashed #555;
-            border-radius: 8px;
-            padding: 10px;
-            width: 100%;
-            cursor: pointer;
-            font-size: 0.9em;
-            transition: all 0.2s;
-        }
-        .btn-add:hover {
-            border-color: #ff9800;
-            color: #ff9800;
-        }
-        .btn-submit {
-            display: block;
-            width: 100%;
-            padding: 16px;
-            border-radius: 12px;
-            border: none;
-            background: linear-gradient(135deg, #ff9800, #ff5722);
-            color: white;
-            font-size: 1.1em;
+            font-size: 12px;
             font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .btn-remove {
+            background: none;
+            color: var(--error);
+            border: none;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-top: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 2px 6px;
         }
-        .btn-submit:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4);
+
+        .btn-remove:hover {
+            text-decoration: underline;
         }
-        .btn-submit:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
+
+        .btn-add {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            color: var(--primary);
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 0;
         }
+
+        .btn-add:hover {
+            color: var(--primary-hover);
+        }
+
         .checkbox-group {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-top: 8px;
+            gap: 10px;
         }
+
         .checkbox-group input[type="checkbox"] {
             width: 18px;
             height: 18px;
-            accent-color: #ff9800;
+            accent-color: var(--primary);
+            cursor: pointer;
         }
+
         .checkbox-group label {
             margin-bottom: 0;
             cursor: pointer;
+            font-size: 14px;
+            color: var(--text-primary);
         }
-        .status-message {
-            padding: 16px;
-            border-radius: 10px;
-            margin-top: 20px;
-            text-align: center;
-            font-size: 0.95em;
-            display: none;
+
+        .submit-area {
+            margin-top: 48px;
         }
-        .status-message.success {
+
+        .btn-submit {
             display: block;
-            background: #1b3a1b;
-            border: 1px solid #4caf50;
-            color: #4caf50;
+            width: 100%;
+            padding: 14px 24px;
+            border-radius: 12px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.1s ease;
+            font-family: inherit;
         }
-        .status-message.error {
-            display: block;
-            background: #3a1b1b;
-            border: 1px solid #ff5252;
-            color: #ff5252;
+
+        .btn-submit:hover:not(:disabled) {
+            background: var(--primary-hover);
         }
-        .status-message.loading {
-            display: block;
-            background: #1a2a3a;
-            border: 1px solid #2196f3;
-            color: #2196f3;
+
+        .btn-submit:active:not(:disabled) {
+            transform: scale(0.995);
         }
-        .status-message a {
-            color: inherit;
-            text-decoration: underline;
+
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
+
         .progress-bar {
             width: 100%;
-            height: 6px;
-            background: #2a2a4a;
-            border-radius: 3px;
-            margin-top: 10px;
+            height: 3px;
+            background: var(--border-light);
+            border-radius: 2px;
+            margin-top: 16px;
             overflow: hidden;
             display: none;
         }
-        .progress-bar.active { display: block; }
-        .progress-bar .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #ff9800, #ff5722);
-            border-radius: 3px;
-            width: 0%;
-            transition: width 0.3s;
-        }
-        .row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-        .help-text {
-            font-size: 0.8em;
-            color: #666;
-            margin-top: 4px;
+
+        .progress-bar.active {
             display: block;
         }
-        .toggle-section {
-            cursor: pointer;
-            user-select: none;
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s ease;
         }
-        .toggle-section::after {
-            content: ' ▼';
-            font-size: 0.8em;
-        }
-        .toggle-section.open::after {
-            content: ' ▲';
-        }
-        .collapsible {
+
+        .status-message {
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin-top: 16px;
+            font-size: 14px;
+            line-height: 1.5;
             display: none;
         }
-        .collapsible.open {
+
+        .status-message.success {
             display: block;
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .status-message.error {
+            display: block;
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        .status-message.loading {
+            display: block;
+            background: var(--info-bg);
+            color: #0369a1;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .status-message.loading {
+                color: #5ac8fa;
+            }
+        }
+
+        .status-message a {
+            color: inherit;
+            text-decoration: underline;
+            word-break: break-all;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 40px 20px 60px;
+            }
+
+            h1 {
+                font-size: 26px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            .section {
+                padding: 28px 0;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🐱 Scratch 扩展提交工具</h1>
-        <p class="subtitle">填写扩展信息，自动生成文件并提交 Pull Request</p>
+        <div class="header">
+            <h1>提交扩展</h1>
+            <p class="subtitle">填写信息，自动生成文件并提交 Pull Request</p>
+        </div>
 
         <form id="submitForm">
             <!-- 基本信息 -->
-            <div class="card">
-                <h2>📋 基本信息</h2>
+            <div class="section">
+                <h2 class="section-title">基本信息</h2>
+
                 <div class="form-group">
                     <label>Slug <span class="required">*</span></label>
-                    <span class="help-text">纯英文标识符，与扩展JS文件名相同（不含.js）</span>
-                    <input type="text" id="slug" placeholder="例如: my-awesome-extension" required pattern="[a-zA-Z0-9_-]+">
+                    <input type="text" id="slug" placeholder="my-awesome-extension" required pattern="[a-zA-Z0-9_-]+">
+                    <span class="help-text">纯英文标识符，与扩展 JS 文件名相同（不含 .js）</span>
                 </div>
+
                 <div class="form-group">
                     <label>扩展名称 <span class="required">*</span></label>
-                    <input type="text" id="name" placeholder="例如: 我的超棒扩展" required>
+                    <input type="text" id="name" placeholder="我的超棒扩展" required>
                 </div>
+
                 <div class="form-group">
                     <label>扩展描述（英文） <span class="required">*</span></label>
-                    <textarea id="description" placeholder="用英文描述你的扩展功能..." required></textarea>
+                    <textarea id="description" placeholder="Describe your extension in English..." required></textarea>
                 </div>
+
                 <div class="form-group">
                     <label>扩展 ID <span class="required">*</span></label>
-                    <span class="help-text">通常与slug相同，纯英文</span>
-                    <input type="text" id="extId" placeholder="例如: myAwesomeExtension" required pattern="[a-zA-Z0-9_-]+">
+                    <input type="text" id="extId" placeholder="myAwesomeExtension" required pattern="[a-zA-Z0-9_-]+">
+                    <span class="help-text">通常与 slug 相同，纯英文</span>
                 </div>
-                <div class="row">
+
+                <div class="form-row">
                     <div class="form-group">
-                        <label>版本号 <span class="optional">（可选）</span></label>
-                        <input type="text" id="version" placeholder="例如: 1.0.0">
+                        <label>版本号</label>
+                        <input type="text" id="version" placeholder="1.0.0">
                     </div>
                     <div class="form-group">
-                        <label>许可证 <span class="optional">（可选）</span></label>
-                        <input type="text" id="license" placeholder="例如: MIT, AGPL 3.0">
+                        <label>许可证</label>
+                        <input type="text" id="license" placeholder="MIT">
                     </div>
                 </div>
             </div>
 
             <!-- 翻译信息 -->
-            <div class="card">
-                <h2 class="toggle-section" onclick="toggleSection('translations')">🌐 翻译信息（可选）</h2>
+            <div class="section">
+                <div class="section-title-row">
+                    <h2 class="section-title" style="margin-bottom:0;">翻译信息</h2>
+                    <button type="button" class="toggle-btn" onclick="toggleSection(event, 'translations')">展开</button>
+                </div>
                 <div class="collapsible" id="translations">
-                    <div class="form-group">
-                        <label>中文名称</label>
-                        <input type="text" id="nameZh" placeholder="中文名称">
-                    </div>
-                    <div class="form-group">
-                        <label>英文名称（翻译字段）</label>
-                        <input type="text" id="nameEn" placeholder="English name">
-                    </div>
-                    <div class="form-group">
-                        <label>中文描述</label>
-                        <textarea id="descZh" placeholder="中文描述内容..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>英文描述（翻译字段）</label>
-                        <textarea id="descEn" placeholder="English description..."></textarea>
+                    <div class="collapsible-inner">
+                        <div class="form-group">
+                            <label>中文名称</label>
+                            <input type="text" id="nameZh" placeholder="中文名称">
+                        </div>
+                        <div class="form-group">
+                            <label>英文名称</label>
+                            <input type="text" id="nameEn" placeholder="English name">
+                        </div>
+                        <div class="form-group">
+                            <label>中文描述</label>
+                            <textarea id="descZh" placeholder="中文描述内容..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>英文描述</label>
+                            <textarea id="descEn" placeholder="English description..."></textarea>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- 作者信息 -->
-            <div class="card">
-                <h2>👤 作者信息</h2>
+            <div class="section">
+                <h2 class="section-title">作者</h2>
                 <div id="authorsContainer">
                     <div class="author-group" data-index="0">
                         <div class="author-header">
-                            <span>作者 #1</span>
+                            <span>作者 1</span>
                         </div>
                         <div class="form-group">
                             <label>名称 <span class="required">*</span></label>
                             <input type="text" class="author-name" placeholder="作者名称" required>
                         </div>
                         <div class="form-group">
-                            <label>链接 <span class="optional">（可选）</span></label>
+                            <label>链接</label>
                             <input type="url" class="author-link" placeholder="https://github.com/xxx">
                         </div>
                     </div>
@@ -373,86 +539,128 @@
             </div>
 
             <!-- 文件上传 -->
-            <div class="card">
-                <h2>📎 文件上传</h2>
+            <div class="section">
+                <h2 class="section-title">文件</h2>
+
                 <div class="form-group">
                     <label>扩展 JS 文件 <span class="required">*</span></label>
-                    <span class="help-text">必须是 {slug}.js，例如 slug 为 "kylin" 则文件名为 "kylin.js"</span>
+                    <span class="help-text" style="margin-top:0; margin-bottom:6px; display:block;">文件名须为 {slug}.js</span>
                     <div class="file-input-wrapper">
                         <input type="file" id="jsFile" accept=".js,application/javascript" required>
-                        <label for="jsFile" class="file-input-label" id="jsLabel">
-                            📁 点击选择 .js 文件
+                        <label for="jsFile" class="file-input-label">
+                            <span class="file-text">选择 .js 文件</span>
                         </label>
                     </div>
                 </div>
+
                 <div class="form-group">
                     <label>封面图片 <span class="required">*</span></label>
-                    <span class="help-text">建议 2:1 比例，不匹配将自动居中裁剪</span>
+                    <span class="help-text" style="margin-top:0; margin-bottom:6px; display:block;">建议 2:1 比例，不匹配将自动居中裁剪</span>
                     <div class="file-input-wrapper">
                         <input type="file" id="coverImage" accept="image/*" required>
-                        <label for="coverImage" class="file-input-label" id="coverLabel">
-                            🖼️ 点击选择封面图片
+                        <label for="coverImage" class="file-input-label">
+                            <span class="file-text">选择封面图片</span>
                         </label>
                     </div>
                     <div class="image-preview" id="imagePreview"></div>
                     <div class="image-info" id="imageInfo"></div>
                 </div>
+
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="hasDocs">
                         <label for="hasDocs">提供文档（HTML 格式）</label>
                     </div>
-                    <div id="docsUpload" style="display:none; margin-top: 10px;">
+                    <div id="docsUpload" style="display:none; margin-top: 12px;">
                         <div class="file-input-wrapper">
                             <input type="file" id="docsFile" accept=".html,text/html">
-                            <label for="docsFile" class="file-input-label" id="docsLabel">
-                                📄 点击选择文档 HTML 文件
+                            <label for="docsFile" class="file-input-label">
+                                <span class="file-text">选择文档 HTML 文件</span>
                             </label>
                         </div>
                     </div>
                 </div>
+
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="hasSamples">
                         <label for="hasSamples">提供实例作品（.sb3 格式）</label>
                     </div>
-                    <div id="samplesUpload" style="display:none; margin-top: 10px;">
+                    <div id="samplesUpload" style="display:none; margin-top: 12px;">
                         <div class="file-input-wrapper">
                             <input type="file" id="sampleFile" accept=".sb3,application/zip">
-                            <label for="sampleFile" class="file-input-label" id="sampleLabel">
-                                🎮 点击选择实例 .sb3 文件
+                            <label for="sampleFile" class="file-input-label">
+                                <span class="file-text">选择实例 .sb3 文件</span>
                             </label>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 提交按钮 -->
-            <button type="submit" class="btn-submit" id="submitBtn">
-                🚀 提交扩展并创建 PR
-            </button>
-
-            <div class="progress-bar" id="progressBar">
-                <div class="progress-fill" id="progressFill"></div>
+            <!-- 提交 -->
+            <div class="submit-area">
+                <button type="submit" class="btn-submit" id="submitBtn">提交扩展并创建 PR</button>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="status-message" id="statusMessage"></div>
             </div>
-
-            <div class="status-message" id="statusMessage"></div>
         </form>
     </div>
 
     <script>
         'use strict';
 
-        // ---- 工具函数 ----
-        function toggleSection(id) {
-            const el = document.getElementById(id);
-            const header = el.previousElementSibling;
-            el.classList.toggle('open');
-            header.classList.toggle('open');
+        // ---- 可打断动画的折叠 ----
+        var activeCollapsible = null;
+
+        function toggleSection(evt, id) {
+            if (evt) {
+                evt.preventDefault();
+                evt.stopPropagation();
+            }
+
+            var el = document.getElementById(id);
+            var btn = evt ? evt.target : document.querySelector('[onclick*="' + id + '"]');
+            var isOpen = el.classList.contains('open');
+
+            // 如果正在动画中，先强制完成当前动画
+            if (activeCollapsible === el) {
+                el.style.transition = 'none';
+                el.offsetHeight;
+                el.style.transition = '';
+            }
+
+            if (isOpen) {
+                el.style.height = el.scrollHeight + 'px';
+                el.offsetHeight;
+                el.style.height = '0px';
+                el.classList.remove('open');
+                if (btn) btn.textContent = '展开';
+                activeCollapsible = el;
+                setTimeout(function() {
+                    if (activeCollapsible !== el) return;
+                    el.style.height = '';
+                    activeCollapsible = null;
+                }, 400);
+            } else {
+                el.classList.add('open');
+                el.style.height = '0px';
+                el.offsetHeight;
+                var targetHeight = el.scrollHeight;
+                el.style.height = targetHeight + 'px';
+                if (btn) btn.textContent = '收起';
+                activeCollapsible = el;
+                setTimeout(function() {
+                    if (activeCollapsible !== el) return;
+                    el.style.height = '';
+                    activeCollapsible = null;
+                }, 400);
+            }
         }
 
         function showStatus(msg, type, link) {
-            const el = document.getElementById('statusMessage');
+            var el = document.getElementById('statusMessage');
             el.className = 'status-message ' + type;
             el.innerHTML = link ? msg + '<br><a href="' + link + '" target="_blank">' + link + '</a>' : msg;
         }
@@ -466,17 +674,17 @@
         var authorCount = 1;
         function addAuthor() {
             if (authorCount >= 5) {
-                alert('最多添加5位作者');
+                alert('最多添加 5 位作者');
                 return;
             }
-            const container = document.getElementById('authorsContainer');
-            const idx = authorCount;
-            const div = document.createElement('div');
+            var container = document.getElementById('authorsContainer');
+            var idx = authorCount;
+            var div = document.createElement('div');
             div.className = 'author-group';
             div.dataset.index = idx;
             div.innerHTML = `
                 <div class="author-header">
-                    <span>作者 #${idx + 1}</span>
+                    <span>作者 ${idx + 1}</span>
                     <button type="button" class="btn-remove" onclick="removeAuthor(${idx})">删除</button>
                 </div>
                 <div class="form-group">
@@ -484,7 +692,7 @@
                     <input type="text" class="author-name" placeholder="作者名称" required>
                 </div>
                 <div class="form-group">
-                    <label>链接 <span class="optional">（可选）</span></label>
+                    <label>链接</label>
                     <input type="url" class="author-link" placeholder="https://github.com/xxx">
                 </div>
             `;
@@ -493,40 +701,42 @@
         }
 
         function removeAuthor(idx) {
-            const el = document.querySelector('.author-group[data-index="' + idx + '"]');
+            var el = document.querySelector('.author-group[data-index="' + idx + '"]');
             if (el) el.remove();
         }
 
         // ---- 文件选择 UI ----
-        function setupFileInput(inputId, labelId, text) {
-            const input = document.getElementById(inputId);
-            const label = document.getElementById(labelId);
+        function setupFileInput(inputId, defaultText) {
+            var input = document.getElementById(inputId);
+            var label = input.nextElementSibling;
+            var textEl = label.querySelector('.file-text');
             input.addEventListener('change', function() {
                 if (input.files.length > 0) {
                     label.classList.add('has-file');
-                    label.textContent = '✅ ' + input.files[0].name;
+                    textEl.textContent = input.files[0].name;
                 } else {
                     label.classList.remove('has-file');
-                    label.textContent = text;
+                    textEl.textContent = defaultText;
                 }
             });
         }
 
-        setupFileInput('jsFile', 'jsLabel', '📁 点击选择 .js 文件');
-        setupFileInput('docsFile', 'docsLabel', '📄 点击选择文档 HTML 文件');
-        setupFileInput('sampleFile', 'sampleLabel', '🎮 点击选择实例 .sb3 文件');
+        setupFileInput('jsFile', '选择 .js 文件');
+        setupFileInput('docsFile', '选择文档 HTML 文件');
+        setupFileInput('sampleFile', '选择实例 .sb3 文件');
 
         // 封面图预览 + 比例检测
         var coverImageData = null;
         document.getElementById('coverImage').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            const label = document.getElementById('coverLabel');
-            const preview = document.getElementById('imagePreview');
-            const info = document.getElementById('imageInfo');
+            var file = e.target.files[0];
+            var label = document.getElementById('coverImage').nextElementSibling;
+            var textEl = label.querySelector('.file-text');
+            var preview = document.getElementById('imagePreview');
+            var info = document.getElementById('imageInfo');
 
             if (!file) {
                 label.classList.remove('has-file');
-                label.textContent = '🖼️ 点击选择封面图片';
+                textEl.textContent = '选择封面图片';
                 preview.innerHTML = '';
                 info.textContent = '';
                 info.className = 'image-info';
@@ -535,21 +745,21 @@
             }
 
             label.classList.add('has-file');
-            label.textContent = '✅ ' + file.name;
+            textEl.textContent = file.name;
 
-            const reader = new FileReader();
+            var reader = new FileReader();
             reader.onload = function(ev) {
-                const img = new Image();
+                var img = new Image();
                 img.onload = function() {
-                    const ratio = img.width / img.height;
-                    preview.innerHTML = '<img src="' + ev.target.result + '" alt="预览">';
+                    var ratio = img.width / img.height;
+                    preview.innerHTML = '<img src="' + ev.target.result + '" alt="preview">';
 
                     if (Math.abs(ratio - 2) < 0.05) {
                         info.className = 'image-info ok';
-                        info.textContent = '✅ 比例正确 (' + img.width + '×' + img.height + ', 比例 ' + ratio.toFixed(2) + ':1) — 无需裁剪';
+                        info.textContent = '比例正确（' + img.width + 'x' + img.height + '）— 无需裁剪';
                     } else {
                         info.className = 'image-info warn';
-                        info.textContent = '⚠️ 当前比例 ' + ratio.toFixed(2) + ':1，目标 2:1。提交时将自动居中裁剪。';
+                        info.textContent = '当前比例 ' + ratio.toFixed(2) + ':1，目标 2:1。提交时将自动居中裁剪。';
                     }
                 };
                 img.src = ev.target.result;
@@ -570,7 +780,7 @@
 
         // Slug 同步到 ID 字段
         document.getElementById('slug').addEventListener('blur', function(e) {
-            const idField = document.getElementById('extId');
+            var idField = document.getElementById('extId');
             if (!idField.value) {
                 idField.value = e.target.value;
             }
@@ -579,35 +789,33 @@
         // ---- 图片裁剪为 2:1 ----
         function cropImageTo2x1(file) {
             return new Promise(function(resolve) {
-                const img = new Image();
+                var img = new Image();
                 img.onload = function() {
-                    const targetRatio = 2;
-                    const currentRatio = img.width / img.height;
-                    let sx, sy, sw, sh;
+                    var targetRatio = 2;
+                    var currentRatio = img.width / img.height;
+                    var sx, sy, sw, sh;
 
                     if (currentRatio > targetRatio) {
-                        // 图片太宽 → 从中间裁切宽度
                         sh = img.height;
                         sw = img.height * targetRatio;
                         sx = (img.width - sw) / 2;
                         sy = 0;
                     } else {
-                        // 图片太高 → 从中间裁切高度
                         sw = img.width;
                         sh = img.width / targetRatio;
                         sx = 0;
                         sy = (img.height - sh) / 2;
                     }
 
-                    const canvas = document.createElement('canvas');
+                    var canvas = document.createElement('canvas');
                     canvas.width = sw;
                     canvas.height = sh;
-                    const ctx = canvas.getContext('2d');
+                    var ctx = canvas.getContext('2d');
                     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
                     canvas.toBlob(function(blob) {
-                        const baseName = file.name.replace(/\.[^.]+$/, '');
-                        const croppedFile = new File([blob], baseName + '.png', {
+                        var baseName = file.name.replace(/\.[^.]+$/, '');
+                        var croppedFile = new File([blob], baseName + '.png', {
                             type: 'image/png'
                         });
                         resolve(croppedFile);
@@ -620,10 +828,10 @@
         // ---- 文件转 base64 ----
         function fileToBase64(file) {
             return new Promise(function(resolve, reject) {
-                const reader = new FileReader();
+                var reader = new FileReader();
                 reader.onload = function() {
-                    const result = reader.result;
-                    const base64 = result.split(',')[1];
+                    var result = reader.result;
+                    var base64 = result.split(',')[1];
                     resolve(base64);
                 };
                 reader.onerror = reject;
@@ -634,37 +842,34 @@
         // ---- 提交 ----
         document.getElementById('submitForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const btn = document.getElementById('submitBtn');
+            var btn = document.getElementById('submitBtn');
             btn.disabled = true;
-            btn.textContent = '⏳ 处理中...';
+            btn.textContent = '处理中...';
 
             try {
                 setProgress(10);
                 showStatus('正在读取文件...', 'loading');
 
-                // 收集表单数据
-                const slug = document.getElementById('slug').value.trim();
-                const name = document.getElementById('name').value.trim();
-                const description = document.getElementById('description').value.trim();
-                const extId = document.getElementById('extId').value.trim();
-                const version = document.getElementById('version').value.trim();
-                const license = document.getElementById('license').value.trim();
+                var slug = document.getElementById('slug').value.trim();
+                var name = document.getElementById('name').value.trim();
+                var description = document.getElementById('description').value.trim();
+                var extId = document.getElementById('extId').value.trim();
+                var version = document.getElementById('version').value.trim();
+                var license = document.getElementById('license').value.trim();
 
-                // 翻译
-                const nameZh = document.getElementById('nameZh').value.trim();
-                const nameEn = document.getElementById('nameEn').value.trim();
-                const descZh = document.getElementById('descZh').value.trim();
-                const descEn = document.getElementById('descEn').value.trim();
+                var nameZh = document.getElementById('nameZh').value.trim();
+                var nameEn = document.getElementById('nameEn').value.trim();
+                var descZh = document.getElementById('descZh').value.trim();
+                var descEn = document.getElementById('descEn').value.trim();
 
-                // 作者
-                const authors = [];
-                const authorGroups = document.querySelectorAll('.author-group');
-                for (let i = 0; i < authorGroups.length; i++) {
-                    const group = authorGroups[i];
-                    const aname = group.querySelector('.author-name').value.trim();
-                    const alink = group.querySelector('.author-link').value.trim();
+                var authors = [];
+                var authorGroups = document.querySelectorAll('.author-group');
+                for (var i = 0; i < authorGroups.length; i++) {
+                    var group = authorGroups[i];
+                    var aname = group.querySelector('.author-name').value.trim();
+                    var alink = group.querySelector('.author-link').value.trim();
                     if (aname) {
-                        const author = { name: aname };
+                        var author = { name: aname };
                         if (alink) author.link = alink;
                         authors.push(author);
                     }
@@ -674,16 +879,14 @@
                     throw new Error('至少需要一位作者');
                 }
 
-                // 文件
-                const jsFile = document.getElementById('jsFile').files[0];
-                const coverFile = document.getElementById('coverImage').files[0];
-                const hasDocs = document.getElementById('hasDocs').checked;
-                const hasSamples = document.getElementById('hasSamples').checked;
-                const docsFile = hasDocs ? document.getElementById('docsFile').files[0] : null;
-                const sampleFile = hasSamples ? document.getElementById('sampleFile').files[0] : null;
+                var jsFile = document.getElementById('jsFile').files[0];
+                var coverFile = document.getElementById('coverImage').files[0];
+                var hasDocs = document.getElementById('hasDocs').checked;
+                var hasSamples = document.getElementById('hasSamples').checked;
+                var docsFile = hasDocs ? document.getElementById('docsFile').files[0] : null;
+                var sampleFile = hasSamples ? document.getElementById('sampleFile').files[0] : null;
 
-                // 验证 JS 文件名
-                const expectedJsName = slug + '.js';
+                var expectedJsName = slug + '.js';
                 if (jsFile.name !== expectedJsName) {
                     throw new Error('JS 文件名必须为 ' + expectedJsName + '，当前为 ' + jsFile.name);
                 }
@@ -691,18 +894,16 @@
                 setProgress(25);
                 showStatus('正在处理封面图片...', 'loading');
 
-                // 裁剪封面图
-                const croppedCover = await cropImageTo2x1(coverFile);
-                const coverExt = croppedCover.name.split('.').pop() || 'png';
+                var croppedCover = await cropImageTo2x1(coverFile);
+                var coverExt = croppedCover.name.split('.').pop() || 'png';
 
                 setProgress(40);
                 showStatus('正在编码文件...', 'loading');
 
-                // 转 base64
-                const jsContent = await fileToBase64(jsFile);
-                const coverContent = await fileToBase64(croppedCover);
-                let docsContent = null;
-                let sampleContent = null;
+                var jsContent = await fileToBase64(jsFile);
+                var coverContent = await fileToBase64(croppedCover);
+                var docsContent = null;
+                var sampleContent = null;
 
                 if (docsFile) {
                     docsContent = await fileToBase64(docsFile);
@@ -714,8 +915,7 @@
                 setProgress(60);
                 showStatus('正在提交到服务器...', 'loading');
 
-                // 构建提交数据
-                const payload = {
+                var payload = {
                     slug: slug,
                     name: name,
                     description: description,
@@ -732,7 +932,6 @@
                     sampleContent: sampleContent
                 };
 
-                // 翻译
                 if (nameZh || nameEn || descZh || descEn) {
                     payload.translations = {};
                     if (nameZh || nameEn) {
@@ -747,8 +946,7 @@
                     }
                 }
 
-                // 发送到 Netlify Function
-                const resp = await fetch('/.netlify/functions/submit', {
+                var resp = await fetch('/.netlify/functions/submit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -756,13 +954,9 @@
 
                 setProgress(85);
 
-                const rawText = await resp.text();
+                var rawText = await resp.text();
 
-                // 先按纯文本读取，再安全解析 JSON。
-                // 若返回的根本不是 JSON（比如函数未部署时被 SPA 重定向 /*→/index.html 拦下，
-                // 或返回了网关/错误页 HTML），resp.json() 会直接抛 "unexpected character at line 1 column 1"。
-                // 这里用 try/catch 稳住，并把真实 HTTP 状态码和原因提示给用户。
-                let result = {};
+                var result = {};
                 try {
                     result = rawText ? JSON.parse(rawText) : {};
                 } catch (e) {
@@ -770,13 +964,12 @@
                     result = {
                         error: '服务器返回了无法解析的内容' +
                                (resp.ok ? '' : '（HTTP ' + resp.status + '）') +
-                               '。请确认函数已成功部署（Netlify「Deploys」里 Functions 状态正常），且请求未被重定向拦截。'
+                               '。请确认函数已成功部署。'
                     };
                 }
 
                 if (!resp.ok || result.error) {
-                    // 环境变量缺失时，同时列出缺失的变量名，方便排查
-                    let msg = result.error || ('请求失败（HTTP ' + resp.status + '）');
+                    var msg = result.error || ('请求失败（HTTP ' + resp.status + '）');
                     if (result.missing && result.missing.length) {
                         msg += '（缺失: ' + result.missing.join(', ') + '）';
                     }
@@ -785,16 +978,16 @@
 
                 setProgress(100);
                 showStatus(
-                    '✅ 提交成功！PR 已创建：#' + result.pullRequestNumber + ' — ' + result.pullRequestTitle,
+                    '提交成功！PR #' + result.pullRequestNumber + ' 已创建。',
                     'success',
                     result.pullRequestUrl
                 );
-                btn.textContent = '🎉 提交成功！可再次提交';
+                btn.textContent = '提交成功，可再次提交';
 
             } catch (err) {
                 console.error(err);
-                showStatus('❌ 错误：' + err.message, 'error');
-                btn.textContent = '🚀 提交扩展并创建 PR';
+                showStatus('错误：' + err.message, 'error');
+                btn.textContent = '提交扩展并创建 PR';
             } finally {
                 btn.disabled = false;
             }
