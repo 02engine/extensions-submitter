@@ -1,11 +1,11 @@
 // Netlify Function: 接收前端提交，生成文件，通过 GitHub App 创建 PR
-// 使用 JWT + REST API 方式，避免 @octokit/app 在 Netlify 的兼容性问题
+// 使用 JWT + REST API 方式
 
-import { createSign } from 'crypto';
+import { createSign, createPrivateKey } from 'crypto';
 
 // ---- 环境变量（在 Netlify 后台设置）----
 // GITHUB_APP_ID          - GitHub App 的 App ID
-// GITHUB_PRIVATE_KEY     - GitHub App 的私钥（PEM 格式明文，或 Base64 编码）
+// GITHUB_PRIVATE_KEY     - GitHub App 的私钥（PEM 明文，直接贴 -----BEGIN RSA PRIVATE KEY----- ...）
 // GITHUB_OWNER           - 仓库所有者
 // GITHUB_REPO            - 仓库名称
 // GITHUB_INSTALLATION_ID - App 安装 ID
@@ -32,13 +32,20 @@ function createJWT(appId, privateKeyPem) {
 
     const headerB64 = base64url(JSON.stringify(header));
     const payloadB64 = base64url(JSON.stringify(payload));
-    const data = headerB64 + '.' + payloadB64;
+    const data = `${headerB64}.${payloadB64}`;
+
+    // 显式声明 PKCS#1 格式，兼容 OpenSSL 3（Node 18+）
+    const keyObject = createPrivateKey({
+        key: privateKeyPem,
+        format: 'pem',
+        type: 'pkcs1'
+    });
 
     const sign = createSign('RSA-SHA256');
     sign.update(data);
-    const signature = base64url(sign.sign(privateKeyPem));
+    const signature = base64url(sign.sign(keyObject));
 
-    return data + '.' + signature;
+    return `${data}.${signature}`;
 }
 
 // ---- 获取安装访问令牌 ----
@@ -102,6 +109,26 @@ async function githubRequest(token, method, path, body) {
     return data;
 }
 
+// ---- 上传/更新文件 ----
+async function uploadFile(token, owner, repo, path, contentBase64, branch, message) {
+    let fileSha = undefined;
+    try {
+        const data = await githubRequest(token, 'GET', `/repos/${owner}/${repo}/contents/${path}?ref=${branch}`);
+        if (data && data.sha) fileSha = data.sha;
+    } catch (e) {
+        // 文件不存在，正常
+    }
+
+    const body = {
+        message: message,
+        content: contentBase64,
+        branch: branch
+    };
+    if (fileSha) body.sha = fileSha;
+
+    await githubRequest(token, 'PUT', `/repos/${owner}/${repo}/contents/${path}`, body);
+}
+
 // ---- 主处理函数 ----
 export async function handler(event, context) {
     if (event.httpMethod === 'OPTIONS') {
@@ -149,72 +176,46 @@ export async function handler(event, context) {
             return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Slug 只能包含字母、数字、下划线和连字符' }) };
         }
 
-        // ---- 初始化 GitHub 认证 ----
+        // ---- 读取并校验环境变量 ----
         const appId = process.env.GITHUB_APP_ID;
         const privateKeyRaw = process.env.GITHUB_PRIVATE_KEY;
         const owner = process.env.GITHUB_OWNER;
         const repo = process.env.GITHUB_REPO;
         const installationId = process.env.GITHUB_INSTALLATION_ID;
 
-        const envCheck = {
-            'GITHUB_APP_ID': appId,
-            'GITHUB_PRIVATE_KEY': privateKeyRaw,
-            'GITHUB_OWNER': owner,
-            'GITHUB_REPO': repo,
-            'GITHUB_INSTALLATION_ID': installationId
-        };
-        const missingEnv = Object.keys(envCheck).filter((k) => !String(envCheck[k] || '').trim());
-
+        const envCheck = { GITHUB_APP_ID: appId, GITHUB_PRIVATE_KEY: privateKeyRaw, GITHUB_OWNER: owner, GITHUB_REPO: repo, GITHUB_INSTALLATION_ID: installationId };
+        const missingEnv = Object.keys(envCheck).filter(k => !String(envCheck[k] || '').trim());
         if (missingEnv.length > 0) {
             console.error('[submit] 服务器环境变量未配置: ' + missingEnv.join(', '));
             return {
                 statusCode: 500,
                 headers: corsHeaders,
-                body: JSON.stringify({
-                    error: '服务器环境变量未配置完整，缺少: ' + missingEnv.join(', '),
-                    missing: missingEnv
-                })
+                body: JSON.stringify({ error: '服务器环境变量未配置完整，缺少: ' + missingEnv.join(', '), missing: missingEnv })
             };
         }
 
-        // ============ 核心修复：私钥解码 ============
-        // 支持两种存法：
-        //   A) Base64 编码（Netlify env 里存的是 LS0tLS... 这种）
-        //   B) PEM 明文（直接存 -----BEGIN PRIVATE KEY----- ...）
-        let privateKey = String(privateKeyRaw).trim();
+        // ---- 私钥最小处理（不做 Base64 解码）----
+        let privateKey = String(privateKeyRaw)
+            .trim()
+            .replace(/^﻿/, '')                    // 去 BOM
+            .replace(/\r\n/g, '\n')              // CRLF → LF
+            .replace(/\r/g, '\n')                // CR → LF
+            .trim() + '\n';                      // 确保末尾有换行
 
-        // 判断是否是 Base64 编码的 PEM（以 LS0t 开头 = base64 后的 "-----"）
-        const looksLikeBase64 = /^[A-Za-z0-9+/=\s]+$/.test(privateKey) && privateKey.startsWith('LS0t');
-        if (looksLikeBase64) {
-            try {
-                privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
-                console.log('[submit] 私钥已通过 Base64 解码');
-            } catch (e) {
-                console.error('[submit] Base64 解码失败，尝试作为明文 PEM 使用');
-            }
+        // 校验：必须是 PKCS#1 格式（GitHub App 原装）
+        if (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----') || !privateKey.includes('-----END RSA PRIVATE KEY-----')) {
+            throw new Error('GITHUB_PRIVATE_KEY 不是合法的 PKCS#1 PEM 格式（应以 -----BEGIN RSA PRIVATE KEY----- 开头）。请直接从 GitHub App 设置页下载私钥原样粘贴。');
         }
-
-        // 换行归一化：兼容 \r\n / \r / \\n / \n 等各种形式
-        privateKey = privateKey
-            .replace(/\r\n/g, '\n')
-            .replace(/\r/g, '')
-            .replace(/\\n/g, '\n');
-
-        // 最终校验：解码后必须是合法的 PEM
-        if (!privateKey.includes('-----BEGIN') || !privateKey.includes('-----END')) {
-            throw new Error('GITHUB_PRIVATE_KEY 解码后不是合法的 PEM 格式，请检查环境变量值');
-        }
-        // ============================================
 
         console.log(`[submit] 开始处理: slug=${slug}, name=${name}`);
 
-        // 创建 JWT → 换安装令牌
-        console.log(`[submit] 使用 App ID=${appId} 签发 JWT（请与 GitHub 后台该 App 的 ID 核对）`);
+        // ---- 创建 JWT → 换安装令牌 ----
+        console.log(`[submit] 使用 App ID=${appId} 签发 JWT`);
         const jwt = createJWT(appId, privateKey);
         const token = await getInstallationToken(jwt, installationId);
         console.log('[submit] 安装令牌获取成功');
 
-        // ---- 获取默认分支信息 ----
+        // ---- 获取默认分支 ----
         const repoData = await githubRequest(token, 'GET', `/repos/${owner}/${repo}`);
         const defaultBranch = repoData.default_branch;
         console.log(`[submit] 默认分支: ${defaultBranch}`);
@@ -276,20 +277,12 @@ export async function handler(event, context) {
         };
 
         if (translations) {
-            if (translations.nameTranslations) {
-                newEntry.nameTranslations = translations.nameTranslations;
-            }
-            if (translations.descriptionTranslations) {
-                newEntry.descriptionTranslations = translations.descriptionTranslations;
-            }
+            if (translations.nameTranslations) newEntry.nameTranslations = translations.nameTranslations;
+            if (translations.descriptionTranslations) newEntry.descriptionTranslations = translations.descriptionTranslations;
         }
 
         newEntry.docs = !!docs;
-
-        if (hasSamples) {
-            newEntry.samples = [slug];
-        }
-
+        if (hasSamples) newEntry.samples = [slug];
         if (version) newEntry.version = version;
         if (license) newEntry.license = license;
 
@@ -322,7 +315,7 @@ export async function handler(event, context) {
         prBody += `- **名称:** ${name}\n`;
         prBody += `- **描述:** ${description}\n`;
         prBody += `- **作者:** ${authors.map(a => a.link ? `[@${a.name}](${a.link})` : a.name).join(', ')}\n`;
-        prBody += `- **封面:** ${coverFileName} (已自动裁剪为 2:1)\n`;
+        prBody += `- **封面:** ${coverFileName}\n`;
         if (docs) prBody += `- **文档:** ✅ 已附上\n`;
         if (hasSamples) prBody += `- **实例作品:** ✅ 已附上\n`;
         prBody += `\n---\n\n> 此 PR 由 Scratch 扩展提交工具自动创建 🤖\n\n`;
@@ -359,29 +352,7 @@ export async function handler(event, context) {
         return {
             statusCode: 500,
             headers: corsHeaders,
-            body: JSON.stringify({
-                error: err.message || '内部服务器错误'
-            })
+            body: JSON.stringify({ error: err.message || '内部服务器错误' })
         };
     }
-}
-
-// ---- 上传/更新文件 ----
-async function uploadFile(token, owner, repo, path, contentBase64, branch, message) {
-    let fileSha = undefined;
-    try {
-        const data = await githubRequest(token, 'GET', `/repos/${owner}/${repo}/contents/${path}?ref=${branch}`);
-        if (data && data.sha) fileSha = data.sha;
-    } catch (e) {
-        // 文件不存在，正常
-    }
-
-    const body = {
-        message: message,
-        content: contentBase64,
-        branch: branch
-    };
-    if (fileSha) body.sha = fileSha;
-
-    await githubRequest(token, 'PUT', `/repos/${owner}/${repo}/contents/${path}`, body);
 }
