@@ -1,11 +1,11 @@
 // Netlify Function: 接收前端提交，生成文件，通过 GitHub App 创建 PR
 // 使用 JWT + REST API 方式，避免 @octokit/app 在 Netlify 的兼容性问题
 
-import { createSign, createVerify } from 'crypto';
+import { createSign } from 'crypto';
 
 // ---- 环境变量（在 Netlify 后台设置）----
 // GITHUB_APP_ID          - GitHub App 的 App ID
-// GITHUB_PRIVATE_KEY     - GitHub App 的私钥（PEM 格式，\n 转义）
+// GITHUB_PRIVATE_KEY     - GitHub App 的私钥（PEM 格式明文，或 Base64 编码）
 // GITHUB_OWNER           - 仓库所有者
 // GITHUB_REPO            - 仓库名称
 // GITHUB_INSTALLATION_ID - App 安装 ID
@@ -21,7 +21,7 @@ function base64url(input) {
     return str.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-function createJWT(appId, privateKey) {
+function createJWT(appId, privateKeyPem) {
     const header = { alg: 'RS256', typ: 'JWT' };
     const now = Math.floor(Date.now() / 1000);
     const payload = {
@@ -36,7 +36,7 @@ function createJWT(appId, privateKey) {
 
     const sign = createSign('RSA-SHA256');
     sign.update(data);
-    const signature = base64url(sign.sign(privateKey));
+    const signature = base64url(sign.sign(privateKeyPem));
 
     return data + '.' + signature;
 }
@@ -81,7 +81,7 @@ async function githubRequest(token, method, path, body) {
 
     const resp = await fetch(url, opts);
 
-    if (resp.status === 204) return null; // No Content
+    if (resp.status === 204) return null;
 
     const text = await resp.text();
     let data = null;
@@ -96,7 +96,6 @@ async function githubRequest(token, method, path, body) {
 
 // ---- 主处理函数 ----
 export async function handler(event, context) {
-    // CORS 预检
     if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
@@ -109,12 +108,10 @@ export async function handler(event, context) {
         };
     }
 
-    // 仅允许 POST
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
 
-    // 添加 CORS 头到所有响应
     const corsHeaders = {
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json'
@@ -151,13 +148,8 @@ export async function handler(event, context) {
         const repo = process.env.GITHUB_REPO;
         const installationId = process.env.GITHUB_INSTALLATION_ID;
 
-        // 逐个检查环境变量（空字符串/纯空白同样视为未配置），并准确报出缺失项。
-        // 若在 Netlify 上已配置却仍报"未配置"，请检查：
-        //  1) 环境变量作用域是否包含 Functions（不要只选 Builds）；
-        //  2) 改完环境变量后是否重新触发部署（函数的环境变量在部署时注入）；
-        //  3) 是否填的是空格或空字符串，读入后会被 trim 判空。
         const envCheck = {
-            'GITHUB_APP_ID': process.env.GITHUB_APP_ID,
+            'GITHUB_APP_ID': appId,
             'GITHUB_PRIVATE_KEY': privateKeyRaw,
             'GITHUB_OWNER': owner,
             'GITHUB_REPO': repo,
@@ -177,13 +169,34 @@ export async function handler(event, context) {
             };
         }
 
-        // 兼容多种私钥换行转义形式：
-        // 真实换行、字面 \r\n / \r / \\n（双反斜杠+n）/ \n（单反斜杠+n）
-        const privateKey = String(privateKeyRaw)
+        // ============ 核心修复：私钥解码 ============
+        // 支持两种存法：
+        //   A) Base64 编码（Netlify env 里存的是 LS0tLS... 这种）
+        //   B) PEM 明文（直接存 -----BEGIN PRIVATE KEY----- ...）
+        let privateKey = String(privateKeyRaw).trim();
+
+        // 判断是否是 Base64 编码的 PEM（以 LS0t 开头 = base64 后的 "-----"）
+        const looksLikeBase64 = /^[A-Za-z0-9+/=\s]+$/.test(privateKey) && privateKey.startsWith('LS0t');
+        if (looksLikeBase64) {
+            try {
+                privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
+                console.log('[submit] 私钥已通过 Base64 解码');
+            } catch (e) {
+                console.error('[submit] Base64 解码失败，尝试作为明文 PEM 使用');
+            }
+        }
+
+        // 换行归一化：兼容 \r\n / \r / \\n / \n 等各种形式
+        privateKey = privateKey
             .replace(/\r\n/g, '\n')
             .replace(/\r/g, '')
-            .replace(/\\n/g, '\n')
-            .replace(/\n/g, '\n');
+            .replace(/\\n/g, '\n');
+
+        // 最终校验：解码后必须是合法的 PEM
+        if (!privateKey.includes('-----BEGIN') || !privateKey.includes('-----END')) {
+            throw new Error('GITHUB_PRIVATE_KEY 解码后不是合法的 PEM 格式，请检查环境变量值');
+        }
+        // ============================================
 
         console.log(`[submit] 开始处理: slug=${slug}, name=${name}`);
 
@@ -253,7 +266,6 @@ export async function handler(event, context) {
             by: authors
         };
 
-        // 翻译
         if (translations) {
             if (translations.nameTranslations) {
                 newEntry.nameTranslations = translations.nameTranslations;
@@ -263,18 +275,13 @@ export async function handler(event, context) {
             }
         }
 
-        // 文档
         newEntry.docs = !!docs;
 
-        // 实例
         if (hasSamples) {
             newEntry.samples = [slug];
         }
 
-        // 版本
         if (version) newEntry.version = version;
-
-        // 许可证
         if (license) newEntry.license = license;
 
         // 检查是否已存在同名 slug，存在则替换
@@ -352,7 +359,6 @@ export async function handler(event, context) {
 
 // ---- 上传/更新文件 ----
 async function uploadFile(token, owner, repo, path, contentBase64, branch, message) {
-    // 检查文件是否已存在
     let fileSha = undefined;
     try {
         const data = await githubRequest(token, 'GET', `/repos/${owner}/${repo}/contents/${path}?ref=${branch}`);
