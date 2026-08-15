@@ -5,7 +5,8 @@ import { createSign, createPrivateKey } from 'crypto';
 
 // ---- 环境变量（在 Netlify 后台设置）----
 // GITHUB_APP_ID          - GitHub App 的 App ID
-// GITHUB_PRIVATE_KEY     - GitHub App 的私钥（PEM 明文，直接贴 -----BEGIN RSA PRIVATE KEY----- ...）
+// GITHUB_PRIVATE_KEY     - GitHub App 私钥 PKCS#8 的 Base64 编码（单行，无换行）
+//                          生成方式：openssl pkcs8 -topk8 -nocrypt -in 原.pem | base64 -w0
 // GITHUB_OWNER           - 仓库所有者
 // GITHUB_REPO            - 仓库名称
 // GITHUB_INSTALLATION_ID - App 安装 ID
@@ -34,11 +35,10 @@ function createJWT(appId, privateKeyPem) {
     const payloadB64 = base64url(JSON.stringify(payload));
     const data = `${headerB64}.${payloadB64}`;
 
-    // 显式声明 PKCS#1 格式，兼容 OpenSSL 3（Node 18+）
+    // PKCS#8，不指定 type，Node 自动探测，OpenSSL 3 原生支持
     const keyObject = createPrivateKey({
         key: privateKeyPem,
-        format: 'pem',
-        type: 'pkcs1'
+        format: 'pem'
     });
 
     const sign = createSign('RSA-SHA256');
@@ -194,19 +194,35 @@ export async function handler(event, context) {
             };
         }
 
-        // ---- 私钥最小处理（不做 Base64 解码）----
-        let privateKey = String(privateKeyRaw)
-            .trim()
-            .replace(/^﻿/, '')                    // 去 BOM
-            .replace(/\r\n/g, '\n')              // CRLF → LF
-            .replace(/\r/g, '\n')                // CR → LF
-            .trim() + '\n';                      // 确保末尾有换行
+        // ---- 私钥处理：Base64 解码 PKCS#8 ----
+        let privateKey = String(privateKeyRaw).trim();
 
-        // 校验：必须是 PKCS#1 格式（GitHub App 原装）
-        if (!privateKey.includes('-----BEGIN RSA PRIVATE KEY-----') || !privateKey.includes('-----END RSA PRIVATE KEY-----')) {
-            throw new Error('GITHUB_PRIVATE_KEY 不是合法的 PKCS#1 PEM 格式（应以 -----BEGIN RSA PRIVATE KEY----- 开头）。请直接从 GitHub App 设置页下载私钥原样粘贴。');
+        // 去 BOM
+        privateKey = privateKey.replace(/^﻿/, '');
+
+        // Base64 解码（Netlify 环境变量里存的是 PKCS#8 的 base64 单行）
+        if (!privateKey.includes('-----BEGIN') && /^[A-Za-z0-9+/=\s]+$/.test(privateKey)) {
+            try {
+                privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
+                console.log('[submit] 私钥已 Base64 解码');
+            } catch (e) {
+                throw new Error('GITHUB_PRIVATE_KEY Base64 解码失败: ' + e.message);
+            }
         }
 
+        // 换行归一化
+        privateKey = privateKey
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .trim() + '\n';
+
+        // 校验：解码后必须是 PKCS#8（BEGIN PRIVATE KEY，没有 RSA）
+        if (!privateKey.includes('-----BEGIN PRIVATE KEY-----') || !privateKey.includes('-----END PRIVATE KEY-----')) {
+            throw new Error('GITHUB_PRIVATE_KEY 解码后不是合法的 PKCS#8 PEM（应以 -----BEGIN PRIVATE KEY----- 开头，不含 RSA）。' +
+                           '请确认：1) 用 openssl pkcs8 -topk8 -nocrypt 转换过；2) 对转换后的文件做了 base64 编码。');
+        }
+
+        console.log(`[submit] 私钥格式校验通过 (PKCS#8)`);
         console.log(`[submit] 开始处理: slug=${slug}, name=${name}`);
 
         // ---- 创建 JWT → 换安装令牌 ----
