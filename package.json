@@ -8,7 +8,7 @@
     "deploy": "netlify deploy --prod"
   },
   "dependencies": {
-    "@octokit/app": "^16.0.0"
+    "jsrsasign": "^11.1.0"
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0"
