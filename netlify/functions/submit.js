@@ -180,10 +180,13 @@ export async function handler(event) {
         if (translations?.descriptionTranslations) entry.descriptionTranslations = translations.descriptionTranslations;
 
         const idx = extJson.extensions.findIndex(e => e.slug === slug);
-        if (idx >= 0) extJson.extensions[idx] = entry;
-        else extJson.extensions.push(entry);
-
-        extJson.extensions.sort((a, b) => a.slug.localeCompare(b.slug));
+        if (idx >= 0) {
+            // 如果已存在该扩展，在原位置更新，不影响其他元素顺序
+            extJson.extensions[idx] = entry;
+        } else {
+            // 否则，将其追加到末尾
+            extJson.extensions.push(entry);
+        }
 
         const jsonBase64 = Buffer.from(JSON.stringify(extJson, null, 2), 'utf-8').toString('base64');
         await putFile(token, owner, repo, 'extensions.json', jsonBase64, `feat(${slug}): register extension`, branchName);
