@@ -123,11 +123,11 @@
             color: var(--primary-hover);
         }
 
-        /* 可打断动画的折叠区域 */
+        /* 简单的非线性动画折叠区域 */
         .collapsible {
             overflow: hidden;
             height: 0;
-            transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: height 0.3s ease-in-out;
             will-change: height;
         }
 
@@ -611,9 +611,7 @@
     <script>
         'use strict';
 
-        // ---- 可打断动画的折叠 ----
-        var activeCollapsible = null;
-
+        // ---- 简单且无时序问题的折叠动画 ----
         function toggleSection(evt, id) {
             if (evt) {
                 evt.preventDefault();
@@ -624,38 +622,14 @@
             var btn = evt ? evt.target : document.querySelector('[onclick*="' + id + '"]');
             var isOpen = el.classList.contains('open');
 
-            // 如果正在动画中，先强制完成当前动画
-            if (activeCollapsible === el) {
-                el.style.transition = 'none';
-                el.offsetHeight;
-                el.style.transition = '';
-            }
-
             if (isOpen) {
-                el.style.height = el.scrollHeight + 'px';
-                el.offsetHeight;
                 el.style.height = '0px';
                 el.classList.remove('open');
                 if (btn) btn.textContent = '展开';
-                activeCollapsible = el;
-                setTimeout(function() {
-                    if (activeCollapsible !== el) return;
-                    el.style.height = '';
-                    activeCollapsible = null;
-                }, 400);
             } else {
                 el.classList.add('open');
-                el.style.height = '0px';
-                el.offsetHeight;
-                var targetHeight = el.scrollHeight;
-                el.style.height = targetHeight + 'px';
+                el.style.height = el.scrollHeight + 'px';
                 if (btn) btn.textContent = '收起';
-                activeCollapsible = el;
-                setTimeout(function() {
-                    if (activeCollapsible !== el) return;
-                    el.style.height = '';
-                    activeCollapsible = null;
-                }, 400);
             }
         }
 
