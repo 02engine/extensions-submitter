@@ -89,9 +89,9 @@ awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' scratch-ext-submitter-*.pem
 ```
 your-repo/
 ├── extensions.json          # ← 必须存在，初始内容见下方
-├── extensions/             # ← 目录会自动创建
-├── images/                 # ← 目录会自动创建
-├── docs/                   # ← 目录会自动创建
+├── extension/             # ← 目录会自动创建
+├── image/                 # ← 目录会自动创建
+├── doc/                   # ← 目录会自动创建
 └── samples/                # ← 目录会自动创建
 ```
 
@@ -196,11 +196,11 @@ netlify deploy --prod
 ```
 your-repo/
 ├── extensions.json              # ← 自动新增/更新条目
-├── extensions/
+├── extension/
 │   └── {slug}.js               # ← 新增
-├── images/
+├── image/
 │   └── {slug}.png              # ← 新增（已裁剪为 2:1）
-├── docs/
+├── doc/
 │   └── {slug}.html             # ← 可选新增
 └── samples/
     └── {slug}.sb3              # ← 可选新增

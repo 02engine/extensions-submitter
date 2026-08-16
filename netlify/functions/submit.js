@@ -138,17 +138,17 @@ export async function handler(event) {
         console.log(`[submit] 分支已创建: ${branchName}`);
 
         // ---- 4. 上传 JS ----
-        await putFile(token, owner, repo, `extensions/${slug}.js`, jsContent, `feat(${slug}): add extension JS`, branchName);
+        await putFile(token, owner, repo, `extension/${slug}.js`, jsContent, `feat(${slug}): add extension JS`, branchName);
         console.log(`[submit] JS 已上传`);
 
         // ---- 5. 上传封面 ----
         const coverFileName = `${slug}.${coverExt}`;
-        await putFile(token, owner, repo, `images/${coverFileName}`, coverContent, `feat(${slug}): add cover image`, branchName);
+        await putFile(token, owner, repo, `image/${coverFileName}`, coverContent, `feat(${slug}): add cover image`, branchName);
         console.log(`[submit] 封面已上传: ${coverFileName}`);
 
         // ---- 6. 可选文档 ----
         if (docs && docsContent) {
-            await putFile(token, owner, repo, `docs/${slug}.html`, docsContent, `feat(${slug}): add documentation`, branchName);
+            await putFile(token, owner, repo, `doc/${slug}.html`, docsContent, `feat(${slug}): add documentation`, branchName);
             console.log(`[submit] 文档已上传`);
         }
 
