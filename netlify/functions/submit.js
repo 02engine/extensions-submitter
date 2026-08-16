@@ -1,18 +1,6 @@
-// Netlify Function: 接收前端提交，服务端用 GitHub App 创建 PR
-// 纯 jsrsasign 自签 JWT，PKCS#1 直接可用
-
 import { KJUR, KEYUTIL } from 'jsrsasign';
-
-// ---- 环境变量 ----
-// GITHUB_APP_ID          GitHub App ID
-// GITHUB_PRIVATE_KEY     GitHub 下载的原装 PKCS#1 私钥（直接粘全文）
-// GITHUB_OWNER           仓库所有者
-// GITHUB_REPO            仓库名
-// GITHUB_INSTALLATION_ID 安装 ID
-
 const GH_API = 'https://api.github.com';
 
-// ========== JWT（跟你前端一模一样） ==========
 function signAppJwt(appId, privateKeyPem) {
     const now = Math.floor(Date.now() / 1000);
     const header = { alg: 'RS256', typ: 'JWT' };
@@ -21,7 +9,6 @@ function signAppJwt(appId, privateKeyPem) {
     return KJUR.jws.JWS.sign('RS256', JSON.stringify(header), JSON.stringify(payload), prv);
 }
 
-// ========== GitHub API 封装 ==========
 async function ghRequest(path, options = {}) {
     const { token, method = 'GET', body, extraHeaders = {} } = options;
     const headers = {
@@ -48,7 +35,6 @@ async function ghRequest(path, options = {}) {
     return text ? JSON.parse(text) : null;
 }
 
-// ========== 业务逻辑 ==========
 async function getInstallationToken(jwt, installationId) {
     const data = await ghRequest(`/app/installations/${installationId}/access_tokens`, {
         method: 'POST', token: jwt
@@ -88,7 +74,6 @@ async function readTextFile(token, owner, repo, path, ref) {
     catch { return atob(data.content); }
 }
 
-// ========== 主处理 ==========
 export async function handler(event) {
     if (event.httpMethod === 'OPTIONS') {
         return {
@@ -213,18 +198,18 @@ export async function handler(event) {
             `- **描述:** ${description}`,
             `- **作者:** ${authors.map(a => a.link ? `[@${a.name}](${a.link})` : a.name).join(', ')}`,
             `- **封面:** ${coverFileName}`,
-            docs ? `- **文档:** ✅ 已附上` : ``,
-            hasSamples ? `- **实例作品:** ✅ 已附上` : ``,
+            docs ? `- **文档:** 已选择` : ``,
+            hasSamples ? `- **实例作品:** 已选择` : ``,
             ``,
             `---`,
             ``,
-            `> 此 PR 由 Scratch 扩展提交工具自动创建 🤖`,
+            `> 此 PR 由 02Engine ExtBot 自动创建`,
         ].filter(Boolean).join('\n');
 
         const pr = await ghRequest(`/repos/${owner}/${repo}/pulls`, {
             method: 'POST', token,
             body: {
-                title: `feat: 提交扩展 ${name} (${slug})`,
+                title: `feat: 自动提交扩展 ${name} (${slug})`,
                 head: branchName,
                 base: baseBranch,
                 body: prBody
