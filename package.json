@@ -8,7 +8,9 @@
     "deploy": "netlify deploy --prod"
   },
   "dependencies": {
-    "jsrsasign": "^11.1.0"
+    "jsrsasign": "^11.1.0",
+    "capjs-core": "^0.1.2",
+    "@netlify/blobs": "^8.0.0"
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0"

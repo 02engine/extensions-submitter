@@ -7,10 +7,16 @@
 ```
 scratch-ext-submit/
 ├── public/
-│   └── index.html          # 前端表单页面（纯静态，无任何外部依赖）
+│   ├── index.html          # 前端表单页面（纯静态，无任何外部 CDN 依赖）
+│   └── cap/                # Cap 无感人机验证 widget（自托管 JS + WASM）
+│       ├── cap.min.js
+│       ├── cap_wasm_bg.wasm
+│       └── pako_inflate.min.js
 ├── netlify/
+│   ├── edge-functions/
+│   │   └── cap.js          # Cap 人机验证边缘函数（/cap/challenge、/cap/redeem）
 │   └── functions/
-│       └── submit.js       # Netlify Function（核心后端逻辑）
+│       └── submit.js       # Netlify Function（核心后端逻辑，受 Cap 验证门控）
 ├── netlify.toml            # Netlify 配置文件
 ├── package.json            # 依赖声明（仅 dev 依赖 netlify-cli）
 └── README.md
@@ -25,6 +31,61 @@ scratch-ext-submit/
 | **最小权限** | App 仅拥有 Contents + Pull Requests 写权限 |
 | **分支隔离** | 每次提交创建独立分支，通过 PR 审查后合并 |
 | **环境变量加密** | Netlify 自动加密存储所有环境变量 |
+| **Cap 人机验证** | 后端必须校验到有效的 Cap 一次性凭证才允许创建 PR，无法被单独调用 |
+
+## 🤖 Cap 无感人机验证
+
+本项目集成了 **Cap**（自托管的开源人机验证，基于 Proof-of-Work + 浏览器 instrumentation）来保护"提交扩展"这一写操作，替代传统图形验证码，用户全程**无感**（后台自动完成，无任何可点击图片）。
+
+Cap 完全自托管，除项目自身外**不依赖任何第三方/CDN**（widget JS 与 WASM 均放在 `public/cap/`，避免被部分地区屏蔽的 CDN 失效）。
+
+### 工作流程（边缘函数方案，无常驻服务器）
+
+```
+用户点击"提交"
+   │
+   ▼
+前端 cap.min.js（无感模式）
+   │  ① POST /cap/challenge （Netlify 边缘函数生成挑战）
+   ▼
+浏览器在后台求解 Proof-of-Work + 运行 instrumentation 指纹
+   │  ② POST /cap/redeem   （边缘函数校验求解结果）
+   ▼
+校验通过 → 边缘函数用 Netlify Blobs 原子签发一个"一次性 cap-token"
+   │  ③ 表单携带 cap-token 提交到 /.netlify/functions/submit
+   ▼
+submit.js 先校验该 cap-token（存在且未过期）→ 成功后**立刻消费**（删除）
+   │  ④ 校验通过后才开始创建分支 / 上传文件 / 创建 PR
+```
+
+关键点：
+- **后端不可被单独调用**：`submit.js` 在创建 PR 之前强制校验 `capToken`，没有有效凭证直接返回 401，无法绕过。
+- **一次性令牌**：同一 token 只能使用一次（get+delete），且 challenge 的 nonce 用 Netlify Blobs 的 `onlyIfNew` 原子写入防重放，同一挑战不可二次兑换。
+- **无状态部署**：Cap 由 `capjs-core` 库在 **Netlify Edge Functions**（基于 Deno）中运行，配合 Netlify Blobs 存 nonce/token，**没有任何常驻服务器**。
+- **密钥隔离**：`CAP_SECRET` 只存在于服务端环境变量，绝不进入前端或 git。
+
+### 需要新增的环境变量：`CAP_SECRET`
+
+一个**长随机高熵字符串**（≥16 字节，建议用随机生成器生成 32+ 字符），用作 Cap 签名/校验的 HMAC 密钥，**必须跨进程保持一致**（即与 `submit.js`、`cap.js` 使用同一个值）。
+
+生成示例：
+```bash
+openssl rand -hex 32
+```
+
+> 同其他环境变量一样：作用域必须选中 **Edge Functions**（`CAP_SECRET` 由边缘函数 `cap.js` 读取）。改完后需**重新部署**才生效。若未配置，边缘函数会返回 `服务器未配置人机验证密钥`，前端提交会提示人机验证失败。
+
+### 本地开发
+
+```bash
+npm install
+# 创建 .env，加入 CAP_SECRET 及其他 GITHUB_* 变量
+netlify dev
+```
+
+`netlify dev` 会同时启动前端、Serverless 函数与边缘函数，本地同样支持 Netlify Blobs，可直接联调。
+
+> 依赖 Cap 官方库：后端 `capjs-core`（边缘函数/服务端校验）、前端 `cap-widget`（已自托管到 `public/cap/`，版本 0.1.57，WASM 版本 0.0.7，均锁定以免上游变更影响生产）。
 
 ## 🚀 完整部署步骤
 
@@ -160,6 +221,7 @@ netlify deploy --prod
 | `GITHUB_OWNER` | `FurryR` | 目标仓库的所有者名 |
 | `GITHUB_REPO` | `scratch-extensions` | 目标仓库名 |
 | `GITHUB_INSTALLATION_ID` | `55667788` | 第二步记下的安装 ID |
+| `CAP_SECRET` | `openssl rand -hex 32` 生成 | Cap 人机验证 HMAC 密钥（≥16 字节随机字符串） |
 
 3. 添加完后，回到站点面板 → **Deploys** → **Trigger deploy** → **Deploy site**
    - 必须重新部署才能让环境变量生效！

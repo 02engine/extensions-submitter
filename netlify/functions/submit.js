@@ -1,5 +1,60 @@
 import { KJUR, KEYUTIL } from 'jsrsasign';
+import { createHash } from 'node:crypto';
+import { getStore } from '@netlify/blobs';
 const GH_API = 'https://api.github.com';
+
+// ---- Cap 人机验证 ----
+// 与 netlify/edge-functions/cap.js 共用的 Blobs store（一次性 cap-token 存于此）
+const CAP_STORE = 'cap';
+
+// 校验前端经过 Cap 人机验证后签发的一次性 token。
+// 只有带有效 token 的请求才允许继续调用后端，否则一律拒绝 —— 保证后端无法被单独使用。
+async function verifyCapToken(capToken) {
+    if (!capToken || typeof capToken !== 'string') {
+        return { ok: false, error: '缺少人机验证凭证，请稍后重试' };
+    }
+
+    // token 格式为 "<id>:<verToken>"，由 capjs-core 的 validateChallenge 签发
+    const idx = capToken.indexOf(':');
+    if (idx <= 0) {
+        return { ok: false, error: '人机验证凭证无效' };
+    }
+    const id = capToken.slice(0, idx);
+    const verToken = capToken.slice(idx + 1);
+    if (!id || !verToken) {
+        return { ok: false, error: '人机验证凭证无效' };
+    }
+
+    // 重新推导 tokenKey，与边缘函数写入时一致
+    const tokenKey = `${id}:${createHash('sha256').update(verToken).digest('hex')}`;
+
+    let store;
+    let record;
+    try {
+        store = getStore(CAP_STORE);
+        record = await store.get(`token:${tokenKey}`, { type: 'json' });
+    } catch (err) {
+        console.error('[submit] 读取 Cap token 失败:', err.message);
+        return { ok: false, error: '人机验证服务暂不可用，请稍后再试' };
+    }
+
+    if (!record || typeof record.expires !== 'number') {
+        return { ok: false, error: '人机验证未通过，请重新提交' };
+    }
+    if (Number(record.expires) < Date.now()) {
+        return { ok: false, error: '人机验证已过期，请刷新页面后重试' };
+    }
+
+    // 一次性消费，防止 token 被重放
+    try {
+        await store.delete(`token:${tokenKey}`);
+    } catch (err) {
+        console.error('[submit] 消费 Cap token 失败:', err.message);
+        return { ok: false, error: '人机验证服务暂不可用，请稍后再试' };
+    }
+
+    return { ok: true };
+}
 
 function signAppJwt(appId, privateKeyPem) {
     const now = Math.floor(Date.now() / 1000);
@@ -98,7 +153,7 @@ export async function handler(event) {
             slug, name, description, extId, authors, coverExt,
             jsContent, coverContent, docs, docsContent,
             hasSamples, sampleContent, translations,
-            version, license
+            version, license, capToken
         } = body;
 
         // ---- 校验 ----
@@ -107,6 +162,12 @@ export async function handler(event) {
         }
         if (!/^[a-zA-Z0-9_-]+$/.test(slug)) {
             return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'slug 只能包含字母、数字、下划线和连字符' }) };
+        }
+
+        // ---- Cap 人机验证（必须通过才开始 GitHub 操作，后端无法被单独调用）----
+        const capCheck = await verifyCapToken(capToken);
+        if (!capCheck.ok) {
+            return { statusCode: 401, headers: cors, body: JSON.stringify({ error: capCheck.error }) };
         }
 
         // ---- 环境变量 ----

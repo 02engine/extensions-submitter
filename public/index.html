@@ -606,7 +606,15 @@
                 <div class="status-message" id="statusMessage"></div>
             </div>
         </form>
-    </div>
+        </div>
+
+    <!-- Cap 无感人机验证：自托管 widget，零外部 CDN 依赖 -->
+    <script>
+        window.CAP_CUSTOM_WASM_URL = '/cap/cap_wasm_bg.wasm'; // 自托管 WASM，避免 jsdelivr 被屏蔽
+        window.CAP_PAKO_URL = '/cap/pako_inflate.min.js';     // 自托管 pako 降级解压库
+        window.CAP_DISABLE_HAPTICS = true;                     // 无感模式下关闭手机端震动反馈
+    </script>
+    <script src="/cap/cap.min.js"></script>
 
     <script>
         'use strict';
@@ -642,6 +650,31 @@
         function setProgress(pct) {
             document.getElementById('progressBar').classList.add('active');
             document.getElementById('progressFill').style.width = pct + '%';
+        }
+
+        // ---- Cap 无感人机验证（后台自动完成，用户无感）----
+        // 通过自托管的边缘函数端点处理 challenge 与 redeem，
+        // 成功后拿到一次性 capToken，随表单提交给后端做二次校验。
+        function runCapChallenge() {
+            return new Promise(function(resolve, reject) {
+                if (typeof window.Cap !== 'function') {
+                    reject(new Error('人机验证组件加载失败，请刷新页面'));
+                    return;
+                }
+                var cap = new window.Cap({
+                    apiEndpoint: '/cap/' // 指向边缘函数端点（/cap/challenge、/cap/redeem）
+                });
+                cap.solve().then(function(res) {
+                    if (res && res.token) {
+                        resolve(res.token);
+                    } else {
+                        reject(new Error('人机验证未返回凭证'));
+                    }
+                }).catch(function(err) {
+                    var msg = (err && err.message) ? err.message : '未知错误';
+                    reject(new Error('人机验证未通过：' + msg));
+                });
+            });
         }
 
         // ---- 作者管理 ----
@@ -876,6 +909,11 @@
 
                 var jsContent = await fileToBase64(jsFile);
                 var coverContent = await fileToBase64(croppedCover);
+
+                // ---- Cap 无感人机验证（后台自动完成，用户无感）----
+                showStatus('正在进行人机验证...', 'loading');
+                var capToken = await runCapChallenge();
+
                 var docsContent = null;
                 var sampleContent = null;
 
@@ -903,7 +941,8 @@
                     docs: hasDocs,
                     docsContent: docsContent,
                     hasSamples: hasSamples,
-                    sampleContent: sampleContent
+                    sampleContent: sampleContent,
+                    capToken: capToken
                 };
 
                 if (nameZh || nameEn || descZh || descEn) {

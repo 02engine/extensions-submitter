@@ -5,6 +5,11 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Cap 人机验证的边缘函数端点（/cap/challenge、/cap/redeem）
+[[edge_functions]]
+  path = "/cap/*"
+  function = "cap"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
