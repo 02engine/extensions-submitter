@@ -8,7 +8,7 @@
 scratch-ext-submit/
 ├── public/
 │   ├── index.html          # 前端表单页面（纯静态，无任何外部 CDN 依赖）
-│   └── cap/                # Cap 无感人机验证 widget（自托管 JS + WASM）
+│   └── assets/cap/          # Cap 无感人机验证 widget（自托管 JS + WASM，独立前缀避免与 API 冲突）
 │       ├── cap.min.js
 │       ├── cap_wasm_bg.wasm
 │       └── pako_inflate.min.js
@@ -37,7 +37,7 @@ scratch-ext-submit/
 
 本项目集成了 **Cap**（自托管的开源人机验证，基于 Proof-of-Work + 浏览器 instrumentation）来保护"提交扩展"这一写操作，替代传统图形验证码，用户全程**无感**（后台自动完成，无任何可点击图片）。
 
-Cap 完全自托管，除项目自身外**不依赖任何第三方/CDN**（widget JS 与 WASM 均放在 `public/cap/`，避免被部分地区屏蔽的 CDN 失效）。
+Cap 完全自托管，除项目自身外**不依赖任何第三方/CDN**（widget JS 与 WASM 均放在 `public/assets/cap/`，避免被部分地区屏蔽的 CDN 失效）。
 
 ### 工作流程（边缘函数方案，无常驻服务器）
 
@@ -85,7 +85,7 @@ netlify dev
 
 `netlify dev` 会同时启动前端、Serverless 函数与边缘函数，本地同样支持 Netlify Blobs，可直接联调。
 
-> 依赖 Cap 官方库：后端 `capjs-core`（边缘函数/服务端校验）、前端 `cap-widget`（已自托管到 `public/cap/`，版本 0.1.57，WASM 版本 0.0.7，均锁定以免上游变更影响生产）。
+> 依赖 Cap 官方库：后端 `capjs-core`（边缘函数/服务端校验）、前端 `cap-widget`（已自托管到 `public/assets/cap/`，版本 0.1.57，WASM 版本 0.0.7，均锁定以免上游变更影响生产）。
 
 ## 🚀 完整部署步骤
 

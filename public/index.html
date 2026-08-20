@@ -610,11 +610,11 @@
 
     <!-- Cap 无感人机验证：自托管 widget，零外部 CDN 依赖 -->
     <script>
-        window.CAP_CUSTOM_WASM_URL = '/cap/cap_wasm_bg.wasm'; // 自托管 WASM，避免 jsdelivr 被屏蔽
-        window.CAP_PAKO_URL = '/cap/pako_inflate.min.js';     // 自托管 pako 降级解压库
-        window.CAP_DISABLE_HAPTICS = true;                     // 无感模式下关闭手机端震动反馈
+        window.CAP_CUSTOM_WASM_URL = '/assets/cap/cap_wasm_bg.wasm'; // 自托管 WASM，避免 jsdelivr 被屏蔽
+        window.CAP_PAKO_URL = '/assets/cap/pako_inflate.min.js';     // 自托管 pako 降级解压库
+        window.CAP_DISABLE_HAPTICS = true;                            // 无感模式下关闭手机端震动反馈
     </script>
-    <script src="/cap/cap.min.js"></script>
+    <script src="/assets/cap/cap.min.js"></script>
 
     <script>
         'use strict';

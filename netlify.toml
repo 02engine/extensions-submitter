@@ -5,11 +5,14 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Cap 人机验证的边缘函数端点（/cap/challenge、/cap/redeem）
+# Cap 人机验证的边缘函数端点（精确路由，避免与 /assets/cap/* 静态资源抢占 namespace）
 [[edge_functions]]
-  path = "/cap/*"
+  path = "/cap/challenge"
   function = "cap"
-  excludedPath = ["/cap/*.js", "/cap/*.wasm"]
+
+[[edge_functions]]
+  path = "/cap/redeem"
+  function = "cap"
 
 [[redirects]]
   from = "/*"

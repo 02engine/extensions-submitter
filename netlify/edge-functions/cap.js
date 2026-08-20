@@ -37,7 +37,7 @@ export default async (request, context) => {
     const store = getStore("cap");
 
     // ---- POST /cap/challenge：生成一个挑战（widget 会先调用这里）----
-    if (url.pathname.endsWith("/challenge") && request.method === "POST") {
+    if (url.pathname === "/cap/challenge" && request.method === "POST") {
         try {
             const ch = await generateChallenge(secret, {
                 scope: SCOPE,
@@ -52,7 +52,7 @@ export default async (request, context) => {
     }
 
     // ---- POST /cap/redeem：验证 widget 求解结果，签发一次性 cap-token ----
-    if (url.pathname.endsWith("/redeem") && request.method === "POST") {
+    if (url.pathname === "/cap/redeem" && request.method === "POST") {
         let body;
         try {
             body = await request.json();
