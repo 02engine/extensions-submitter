@@ -60,7 +60,7 @@ submit.js 先校验该 cap-token（存在且未过期）→ 成功后**立刻消
 
 关键点：
 - **后端不可被单独调用**：`submit.js` 在创建 PR 之前强制校验 `capToken`，没有有效凭证直接返回 401，无法绕过。
-- **一次性令牌**：同一 token 只能使用一次（get+delete），且 challenge 的 nonce 用 Netlify Blobs 的 `onlyIfNew` 原子写入防重放，同一挑战不可二次兑换。
+- **一次性令牌**：同一 token 只能使用一次（get+delete）；challenge 的 nonce 通过 Netlify Blobs「先读后写」的方式记账，同一挑战不可二次兑换（注：由于当前 `@netlify/blobs` 的 `set` 不支持 `onlyIfNew` 原子条件写，采用 get→set 的兼容写法，防重放作为纵深防御并与 token 消费机制叠加）。
 - **无状态部署**：Cap 由 `capjs-core` 库在 **Netlify Edge Functions**（基于 Deno）中运行，配合 Netlify Blobs 存 nonce/token，**没有任何常驻服务器**。
 - **密钥隔离**：`CAP_SECRET` 只存在于服务端环境变量，绝不进入前端或 git。
 

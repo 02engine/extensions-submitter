@@ -62,10 +62,17 @@ export default async (request, context) => {
 
         const result = await validateChallenge(secret, body, {
             scope: SCOPE,
-            // 原子防重放：同一 challenge 只能被兑换一次（onlyIfNew 保证并发安全）
-            consumeNonce: async (sigHex, ttlMs) => {
-                const res = await store.set(`nonce:${sigHex}`, "1", { onlyIfNew: true });
-                return res.modified === true;
+            // 防重放：同一 challenge 只能被兑换一次。
+            // 注意：当前 @netlify/blobs 的 Store.set 不接受 onlyIfNew，也不返回任何值（返回值恒为 undefined）。
+            // 原先“const res = await store.set(..., { onlyIfNew: true }); res.modified === true”
+            // 会在读取 res.modified 时抛 TypeError，被 capjs-core 捕获为 nonce_store_error。
+            // 这里改为“先 get 判存在、再 set 写入”的写法，对所有 @netlify/blobs 版本均兼容。
+            consumeNonce: async (sigHex) => {
+                const nonceKey = `nonce:${sigHex}`;
+                const existing = await store.get(nonceKey);
+                if (existing !== null) return false; // 已被兑换过
+                await store.set(nonceKey, "1");
+                return true;
             },
         });
 
