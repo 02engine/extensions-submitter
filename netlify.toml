@@ -9,6 +9,7 @@
 [[edge_functions]]
   path = "/cap/*"
   function = "cap"
+  excludedPath = ["/cap/*.js", "/cap/*.wasm"]
 
 [[redirects]]
   from = "/*"
