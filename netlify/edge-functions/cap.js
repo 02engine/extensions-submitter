@@ -7,6 +7,29 @@ import { generateChallenge, validateChallenge } from "capjs-core";
 // 与 submit.js 共享的 scope，校验两端必须一致
 const SCOPE = "submit";
 
+// ================= 超级日志工具（Edge 版） =================
+let __capSeq = 0;
+function _cTs() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+}
+function _cLog(level, tag, msg, extra) {
+    const seq = ++__capSeq;
+    const icon = { INFO: "🗒️", WARN: "🟡", ERROR: "🔴", OK: "✅", CAP: "🛡️", BLOB: "📦" }[tag] || "•";
+    const base = `[${_cTs()}] #${String(seq).padStart(3)} [${level}] ${icon} [cap] ${msg}`;
+    const payload = extra === undefined ? "" : ` · ${typeof extra === "string" ? extra : JSON.stringify(extra)}`;
+    if (level === "ERROR") console.error(base + payload);
+    else if (level === "WARN") console.warn(base + payload);
+    else console.log(base + payload);
+}
+const cInfo  = (m, e) => _cLog("INFO", "INFO", m, e);
+const cWarn  = (m, e) => _cLog("WARN", "WARN", m, e);
+const cError = (m, e) => _cLog("ERROR", "ERROR", m, e);
+const cOk    = (m, e) => _cLog("INFO", "OK", m, e);
+const cCap   = (m, e) => _cLog("INFO", "CAP", m, e);
+const cBlob  = (m, e) => _cLog("INFO", "BLOB", m, e);
+
 function json(data, status = 200) {
     return new Response(JSON.stringify(data), {
         status,
@@ -21,6 +44,7 @@ function json(data, status = 200) {
 
 export default async (request, context) => {
     const url = new URL(request.url);
+    cInfo(`收到请求`, `${request.method} ${url.pathname}`);
 
     // 预检请求
     if (request.method === "OPTIONS") {
@@ -30,62 +54,79 @@ export default async (request, context) => {
     // CAP_SECRET 只存在于服务端，绝不暴露给前端
     const secret = Deno.env.get("CAP_SECRET");
     if (!secret) {
-        console.error("[cap] CAP_SECRET 未配置");
+        cError("CAP_SECRET 未配置 → 500");
         return json({ error: "服务器未配置人机验证密钥" }, 500);
     }
+    cOk("CAP_SECRET 已配置");
 
-    const store = getStore("cap");
+    let store;
+    try {
+        store = getStore("cap");
+    } catch (err) {
+        cError("getStore(\"cap\") 失败（Blobs 未注入连接上下文）", { name: err?.name, message: err?.message });
+        return json({ error: "服务器存储初始化失败" }, 500);
+    }
+    cBlob("getStore(\"cap\") 成功");
 
     // ---- POST /cap/challenge：生成一个挑战（widget 会先调用这里）----
     if (url.pathname === "/cap/challenge" && request.method === "POST") {
+        const t0 = Date.now();
         try {
+            cCap("生成 challenge 开始");
             const ch = await generateChallenge(secret, {
                 scope: SCOPE,
                 // 开启浏览器 instrumentation（无感，后台运行），提高反自动化能力
                 instrumentation: true,
             });
+            cOk("generateChallenge 成功", `${Date.now() - t0}ms`);
             return json(ch);
         } catch (err) {
-            console.error("[cap] generateChallenge 失败:", err);
+            cError("generateChallenge 失败", { name: err?.name, message: err?.message, ms: Date.now() - t0 });
             return json({ error: "生成挑战失败" }, 500);
         }
     }
 
     // ---- POST /cap/redeem：验证 widget 求解结果，签发一次性 cap-token ----
     if (url.pathname === "/cap/redeem" && request.method === "POST") {
+        const t0 = Date.now();
+        cCap("redeem 开始（验证求解结果）");
         let body;
         try {
             body = await request.json();
         } catch {
+            cWarn("请求体不是合法 JSON → 400");
             return json({ success: false, error: "请求体不是合法 JSON" }, 400);
         }
 
         const result = await validateChallenge(secret, body, {
             scope: SCOPE,
             // 防重放：同一 challenge 只能被兑换一次。
-            // 注意：当前 @netlify/blobs 的 Store.set 不接受 onlyIfNew，也不返回任何值（返回值恒为 undefined）。
-            // 原先“const res = await store.set(..., { onlyIfNew: true }); res.modified === true”
-            // 会在读取 res.modified 时抛 TypeError，被 capjs-core 捕获为 nonce_store_error。
-            // 这里改为“先 get 判存在、再 set 写入”的写法，对所有 @netlify/blobs 版本均兼容。
             consumeNonce: async (sigHex) => {
                 const nonceKey = `nonce:${sigHex}`;
+                cBlob("nonce 防重放检查", { nonceKey: nonceKey.substring(0, 20) });
                 const existing = await store.get(nonceKey);
-                if (existing !== null) return false; // 已被兑换过
+                if (existing !== null) {
+                    cWarn("nonce 已被兑换过 → 拒绝重放");
+                    return false;
+                }
                 await store.set(nonceKey, "1");
+                cBlob("nonce 已记账", { nonceKey: nonceKey.substring(0, 20) });
                 return true;
             },
         });
 
         if (!result.success) {
-            console.warn("[cap] redeem 失败:", result.reason);
+            cWarn("redeem 验证失败", result.reason);
             return json({ success: false, error: result.reason || "验证未通过" }, 400);
         }
+        cOk("redeem 验证通过");
 
         // 把一次性 cap-token 写入 Blobs，供 submit 函数做二次验证（get+delete）
         try {
             await store.setJSON(`token:${result.tokenKey}`, { expires: result.expires });
+            cOk("cap-token 已写入 Blobs", { tokenKey: `token:${result.tokenKey}`.substring(0, 20), expires: result.expires, ms: Date.now() - t0 });
         } catch (err) {
-            console.error("[cap] 写入 cap-token 失败:", err);
+            cError("写入 cap-token 失败", { name: err?.name, message: err?.message, ms: Date.now() - t0 });
             return json({ success: false, error: "服务端存储失败" }, 500);
         }
 
@@ -93,5 +134,6 @@ export default async (request, context) => {
         return json({ success: true, token: result.token, expires: result.expires });
     }
 
+    cWarn("未匹配任何路由 → 404", url.pathname);
     return json({ error: "Not Found" }, 404);
 };
