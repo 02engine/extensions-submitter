@@ -67,10 +67,11 @@ async function verifyCapToken(capToken) {
     const payload = parts[0];
     const sig = parts[1];
     const expectedSig = createHmac('sha256', secret).update(payload).digest('hex');
-    const actualSigBuf = Buffer.isBuffer(sig)
+    const actualSig = Buffer.isBuffer(sig)
         ? sig
         : Buffer.from(String(sig), 'hex');
-    if (!actualSig || actualSig.length !== expectedSig.length || !timingSafeEqual(actualSig, Buffer.from(expectedSig, 'hex'))) {
+    const expected = Buffer.from(expectedSig, 'hex');
+    if (actualSig.length !== expected.length || !timingSafeEqual(actualSig, expected)) {
         logWarn('capToken 签名不匹配 → 拒绝（凭证伪造或密钥不一致）');
         return { ok: false, error: '人机验证凭证无效' };
     }
