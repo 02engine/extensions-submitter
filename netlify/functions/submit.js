@@ -1,6 +1,5 @@
 import { KJUR, KEYUTIL } from 'jsrsasign';
-import { createHash } from 'node:crypto';
-import { getStore } from '@netlify/blobs';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 const GH_API = 'https://api.github.com';
 
 // ================= 超级日志工具 =================
@@ -34,33 +33,23 @@ const logCap   = (m, e) => _log('INFO',  'CAP', m, e);
 const logBlob  = (m, e) => _log('INFO',  'BLOB', m, e);
 
 // ---- Cap 人机验证 ----
-// 与 netlify/edge-functions/cap.js 共用的 Blobs store（一次性 cap-token 存于此）
-const CAP_STORE = 'cap';
+// 无状态签名凭证方案（不再依赖 Netlify Blobs）：
+// cap.js 验证真实 PoW 求解后，用共享 CAP_SECRET 对 payload 做 HMAC-SHA256 签名
+// 生成自包含 token。submit.js 用同一把 CAP_SECRET 独立验证签名与过期时间。
+const CAP_SCOPE = 'submit';   // 与 cap.js 的 scope 必须一致
+const CAP_TTL_MS = 10 * 60 * 1000; // 凭证有效期 10 分钟
 
-// 校验前端经过 Cap 人机验证后签发的一次性 token。
+// 校验前端经过 Cap 人机验证后签发的一次性凭证 token。
 // 只有带有效 token 的请求才允许继续调用后端，否则一律拒绝 —— 保证后端无法被单独使用。
+// 依赖环境变量 CAP_SECRET（与 cap.js 保持一致）。
 async function verifyCapToken(capToken) {
     const t0 = Date.now();
     logCap('verifyCapToken 开始（校验前端一次性凭证）');
 
-    // ---- 环境诊断：Netlify Blobs 连接上下文是否注入 ----
-    const ctxGlobal = typeof globalThis.netlifyBlobsContext !== 'undefined' ? globalThis.netlifyBlobsContext : null;
-    const ctxEnv = process.env.NETLIFY_BLOBS_CONTEXT || null;
-    if (ctxGlobal || ctxEnv) {
-        logBlob('Blobs 连接上下文已注入', { global: !!ctxGlobal, env: !!ctxEnv });
-    } else {
-        logWarn('Blobs 连接上下文缺失（global/env 均为空）→ getStore 将抛 MissingBlobsEnvironmentError', {
-            global: false, env: false,
-            提示: '生产=需重新部署让平台注入 NETLIFY_BLOBS_CONTEXT；本地=需 netlify login + link'
-        });
-    }
-    if (ctxEnv) {
-        try {
-            const parsed = JSON.parse(Buffer.from(ctxEnv, 'base64').toString('utf-8'));
-            logDebug('NETLIFY_BLOBS_CONTEXT 解码成功', { siteID: !!parsed.siteID, token: !!parsed.token, keys: Object.keys(parsed) });
-        } catch (e) {
-            logError('NETLIFY_BLOBS_CONTEXT base64 解码失败', e.message);
-        }
+    const secret = process.env.CAP_SECRET;
+    if (!secret) {
+        logError('CAP_SECRET 未配置 → 拒绝所有人机验证');
+        return { ok: false, error: '服务器环境变量未配置完整，缺少: CAP_SECRET' };
     }
 
     if (!capToken || typeof capToken !== 'string') {
@@ -68,54 +57,42 @@ async function verifyCapToken(capToken) {
         return { ok: false, error: '缺少人机验证凭证，请稍后重试' };
     }
 
-    // token 格式为 "<id>:<verToken>"
-    const idx = capToken.indexOf(':');
-    if (idx <= 0) {
-        logWarn('capToken 格式非法（无冒号分隔）', { len: capToken.length });
+    // token 格式: "<payload>.<sig>"，payload = "cap:v1:<scope>:<expires>"
+    // 通过重新计算 HMAC-SHA256(CAP_SECRET, payload) 与 token 中的 sig 比对来验证真实性。
+    const parts = capToken.split('.');
+    if (parts.length !== 2) {
+        logWarn('capToken 格式非法（应为 payload.sig）', { segCnt: parts.length });
         return { ok: false, error: '人机验证凭证无效' };
     }
-    const id = capToken.slice(0, idx);
-    const verToken = capToken.slice(idx + 1);
-    if (!id || !verToken) {
-        logWarn('capToken 的 id/verToken 为空', { idLen: id.length, verTokenLen: verToken.length });
+    const payload = parts[0];
+    const sig = parts[1];
+    const expectedSig = createHmac('sha256', secret).update(payload).digest('hex');
+    const actualSigBuf = Buffer.isBuffer(sig)
+        ? sig
+        : Buffer.from(String(sig), 'hex');
+    if (!actualSig || actualSig.length !== expectedSig.length || !timingSafeEqual(actualSig, Buffer.from(expectedSig, 'hex'))) {
+        logWarn('capToken 签名不匹配 → 拒绝（凭证伪造或密钥不一致）');
         return { ok: false, error: '人机验证凭证无效' };
     }
 
-    // 重新推导 tokenKey，与边缘函数写入时一致
-    const tokenKey = `${id}:${createHash('sha256').update(verToken).digest('hex')}`;
-    logDebug('tokenKey 重算完成（不落完整值）', { idPrefix: id.substring(0, 6) });
-
-    let store;
-    let record;
-    try {
-        store = getStore(CAP_STORE);
-        logDebug('getStore("cap") 创建成功');
-        record = await store.get(`token:${tokenKey}`, { type: 'json' });
-        logDebug('store.get 完成', { hit: !!record, ms: Date.now() - t0 });
-    } catch (err) {
-        logError('读取 Cap token 失败（getStore/store.get 抛错）', { name: err?.name, message: err?.message, ms: Date.now() - t0 });
-        return { ok: false, error: '人机验证服务暂不可用，请稍后再试' };
+    // 解析 payload：v:<1>:<scope>:<expires>
+    const payloadParts = String(payload).split(':');
+    if (
+        payloadParts.length !== 4 ||
+        payloadParts[0] !== 'cap' ||
+        payloadParts[1] !== 'v1' ||
+        payloadParts[2] !== CAP_SCOPE
+    ) {
+        logWarn('capToken payload 结构异常', { payloadParts });
+        return { ok: false, error: '人机验证凭证无效' };
     }
-
-    if (!record || typeof record.expires !== 'number') {
-        logWarn('token 不存在或缺少 expires', { found: !!record, type: typeof record?.expires });
-        return { ok: false, error: '人机验证未通过，请重新提交' };
-    }
-    if (Number(record.expires) < Date.now()) {
-        logWarn('token 已过期', { expires: record.expires, now: Date.now(), diffSec: Math.round((Date.now() - record.expires) / 1000) });
+    const expires = Number(payloadParts[3]);
+    if (!Number.isFinite(expires) || expires < Date.now()) {
+        logWarn('capToken 已过期', { expires, now: Date.now(), diffSec: Math.round((Date.now() - expires) / 1000) });
         return { ok: false, error: '人机验证已过期，请刷新页面后重试' };
     }
-    logOk('token 校验通过（存在且未过期）');
 
-    // 一次性消费，防止 token 被重放
-    try {
-        await store.delete(`token:${tokenKey}`);
-        logOk('token 已消费（delete 完成）', { ms: Date.now() - t0 });
-    } catch (err) {
-        logError('消费 Cap token 失败', { name: err?.name, message: err?.message, ms: Date.now() - t0 });
-        return { ok: false, error: '人机验证服务暂不可用，请稍后再试' };
-    }
-
+    logOk('capToken 签名有效且未过期', `剩余 ${Math.round((expires - Date.now()) / 1000)}s`);
     logCap('verifyCapToken 通过，总耗时', `${Date.now() - t0}ms`);
     return { ok: true };
 }

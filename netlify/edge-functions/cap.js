@@ -1,11 +1,14 @@
 // Cap CAPTCHA 边缘函数（Netlify Edge Function，基于 Deno）
 // 提供无状态的 challenge 生成与 redemption 验证。
-// 使用 capjs-core（已确认可在 Deno 运行）+ Netlify Blobs 做原子 nonce 防重放。
-import { getStore } from "@netlify/blobs";
+// 使用 capjs-core（已确认可在 Deno 运行）。不再依赖 Netlify Blobs：
+// PoW 求解验证通过后，直接用共享 CAP_SECRET 签发一个 HMAC-SHA256 自签名凭证，
+// submit.js 用同一把 CAP_SECRET 独立验证，两端均无需任何外部存储。
 import { generateChallenge, validateChallenge } from "capjs-core";
+import { createHmac } from "node:crypto";
 
 // 与 submit.js 共享的 scope，校验两端必须一致
 const SCOPE = "submit";
+const CAP_TTL_MS = 10 * 60 * 1000; // 凭证有效期 10 分钟
 
 // ================= 超级日志工具（Edge 版） =================
 let __capSeq = 0;
@@ -59,14 +62,6 @@ export default async (request, context) => {
     }
     cOk("CAP_SECRET 已配置");
 
-    let store;
-    try {
-        store = getStore("cap");
-    } catch (err) {
-        cError("getStore(\"cap\") 失败（Blobs 未注入连接上下文）", { name: err?.name, message: err?.message });
-        return json({ error: "服务器存储初始化失败" }, 500);
-    }
-    cBlob("getStore(\"cap\") 成功");
 
     // ---- POST /cap/challenge：生成一个挑战（widget 会先调用这里）----
     if (url.pathname === "/cap/challenge" && request.method === "POST") {
@@ -100,19 +95,9 @@ export default async (request, context) => {
 
         const result = await validateChallenge(secret, body, {
             scope: SCOPE,
-            // 防重放：同一 challenge 只能被兑换一次。
-            consumeNonce: async (sigHex) => {
-                const nonceKey = `nonce:${sigHex}`;
-                cBlob("nonce 防重放检查", { nonceKey: nonceKey.substring(0, 20) });
-                const existing = await store.get(nonceKey);
-                if (existing !== null) {
-                    cWarn("nonce 已被兑换过 → 拒绝重放");
-                    return false;
-                }
-                await store.set(nonceKey, "1");
-                cBlob("nonce 已记账", { nonceKey: nonceKey.substring(0, 20) });
-                return true;
-            },
+            // 无状态：不设 consumeNonce（过去依赖 Blobs 做 nonce 防重放），
+            // 改为在 PoW 验证通过后，用 CAP_SECRET 签发一个 HMAC 自签名凭证，
+            // 由 submit.js 用同一把密钥独立校验真实性与过期时间。
         });
 
         if (!result.success) {
@@ -121,17 +106,15 @@ export default async (request, context) => {
         }
         cOk("redeem 验证通过");
 
-        // 把一次性 cap-token 写入 Blobs，供 submit 函数做二次验证（get+delete）
-        try {
-            await store.setJSON(`token:${result.tokenKey}`, { expires: result.expires });
-            cOk("cap-token 已写入 Blobs", { tokenKey: `token:${result.tokenKey}`.substring(0, 20), expires: result.expires, ms: Date.now() - t0 });
-        } catch (err) {
-            cError("写入 cap-token 失败", { name: err?.name, message: err?.message, ms: Date.now() - t0 });
-            return json({ success: false, error: "服务端存储失败" }, 500);
-        }
+        // 签发自签名凭证: payload = "cap:v1:<scope>:<expires>", sig = HMAC-SHA256(CAP_SECRET, payload)
+        const payload = `cap:v1:${SCOPE}:${Date.now() + CAP_TTL_MS}`;
+        const sig = createHmac("sha256", secret).update(payload).digest("hex");
+        const capToken = `${payload}.${sig}`;
+        const expires = Date.now() + CAP_TTL_MS;
+        cOk("cap-token 已签发（无状态自签名），无需任何存储", { scope: SCOPE, expires, ms: Date.now() - t0 });
 
-        // 只把 token / expires 返回给 widget（tokenKey 绝不外泄）
-        return json({ success: true, token: result.token, expires: result.expires });
+        // 只把凭证 token / expires 返回给 widget（payload 语义对前端不透明）
+        return json({ success: true, token: capToken, expires });
     }
 
     cWarn("未匹配任何路由 → 404", url.pathname);
