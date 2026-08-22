@@ -26,10 +26,7 @@ let _SQL = null;
 async function getSQL() {
     if (_SQL) return _SQL;
     const initSqlJs = (await import('sql.js')).default;
-    // Netlify Functions 运行环境自带 node_modules（sql.js 已声明为 external），
-    // 通过 createRequire 解析 WASM 二进制路径后以 wasmBinary 注入，避免 locateFile 路径问题。
-    const { createRequire } = await import('node:module');
-    const require = createRequire(import.meta.url);
+    // Netlify Functions 运行环境：全局 require 可用，直接 resolve WASM 路径
     const fs = await import('node:fs');
     let wasmBinary;
     try {
