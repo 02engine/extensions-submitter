@@ -984,6 +984,44 @@
             reader.readAsDataURL(file);
         });
 
+        // ---- 图片裁剪为 2:1 ----
+        function cropImageTo2x1(file) {
+            return new Promise(function(resolve) {
+                var img = new Image();
+                img.onload = function() {
+                    var targetRatio = 2;
+                    var currentRatio = img.width / img.height;
+                    var sx, sy, sw, sh;
+                    if (currentRatio > targetRatio) {
+                        sh = img.height; sw = img.height * targetRatio;
+                        sx = (img.width - sw) / 2; sy = 0;
+                    } else {
+                        sw = img.width; sh = img.width / targetRatio;
+                        sx = 0; sy = (img.height - sh) / 2;
+                    }
+                    var canvas = document.createElement('canvas');
+                    canvas.width = sw; canvas.height = sh;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+                    canvas.toBlob(function(blob) {
+                        var baseName = file.name.replace(/\.[^.]+$/, '');
+                        resolve(new File([blob], baseName + '.png', { type: 'image/png' }));
+                    }, 'image/png');
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // ---- 文件转 base64 ----
+        function fileToBase64(file) {
+            return new Promise(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function() { resolve(reader.result.split(',')[1]); };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
         // ---- 第一步：查询扩展当前信息 ----
         $('queryBtn').addEventListener('click', async function() {
             var btn = this;
@@ -1174,40 +1212,3 @@
 </body>
 </html>
 
-        // ---- 图片裁剪为 2:1 ----
-        function cropImageTo2x1(file) {
-            return new Promise(function(resolve) {
-                var img = new Image();
-                img.onload = function() {
-                    var targetRatio = 2;
-                    var currentRatio = img.width / img.height;
-                    var sx, sy, sw, sh;
-                    if (currentRatio > targetRatio) {
-                        sh = img.height; sw = img.height * targetRatio;
-                        sx = (img.width - sw) / 2; sy = 0;
-                    } else {
-                        sw = img.width; sh = img.width / targetRatio;
-                        sx = 0; sy = (img.height - sh) / 2;
-                    }
-                    var canvas = document.createElement('canvas');
-                    canvas.width = sw; canvas.height = sh;
-                    var ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-                    canvas.toBlob(function(blob) {
-                        var baseName = file.name.replace(/\.[^.]+$/, '');
-                        resolve(new File([blob], baseName + '.png', { type: 'image/png' }));
-                    }, 'image/png');
-                };
-                img.src = URL.createObjectURL(file);
-            });
-        }
-
-        // ---- 文件转 base64 ----
-        function fileToBase64(file) {
-            return new Promise(function(resolve, reject) {
-                var reader = new FileReader();
-                reader.onload = function() { resolve(reader.result.split(',')[1]); };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
