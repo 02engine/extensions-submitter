@@ -3,28 +3,23 @@
 // 数据库文件 tokens.db 存放在独立仓库中（环境变量 TOKEN_REPO 指定，与 GITHUB_OWNER 同账号），
 // 每次读写流程：GitHub Contents API 下载 → 内存 SQL 操作 → 整个文件 PUT 回仓库。
 //
-// 安全设计：
+// 设计说明：
 // - token 用 crypto.randomBytes(32) 生成 256 位随机值，仅签发时展示一次
-// - 数据库只保存 token 的 SHA-256 哈希，泄露数据库不等于泄露凭证
-// - 校验使用 timingSafeEqual 防时序攻击
+// - 数据库以明文形式保存 token，便于管理员直接查阅/找回凭证
 
-import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { getFileBase64, putFile, logToken, logOk, logWarn, logError, logStep } from './_github.js';
 
 const DB_PATH = 'tokens.db';
 
 export const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS tokens (
+CREATE TABLE IF NOT EXISTS update_tokens (
     ext_id     TEXT PRIMARY KEY,
-    token_hash TEXT NOT NULL,
+    token      TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     updated_at INTEGER
 );
 `;
-
-function sha256hex(s) {
-    return createHash('sha256').update(String(s), 'utf8').digest('hex');
-}
 
 // ---- 加载 sql.js ----
 let _SQL = null;
@@ -84,15 +79,14 @@ export async function issueTokenFor(githubToken, owner, repo, extId) {
         const db = await loadDb(githubToken, owner, repo);
 
         const raw = randomBytes(32).toString('base64url'); // 256-bit 高强度随机 token
-        const hash = sha256hex(raw);
         const now = Date.now();
 
         const stmt = db.prepare(
-            `INSERT INTO tokens (ext_id, token_hash, created_at, updated_at)
+            `INSERT INTO update_tokens (ext_id, token, created_at, updated_at)
              VALUES (?, ?, ?, ?)
-             ON CONFLICT(ext_id) DO UPDATE SET token_hash = excluded.token_hash, updated_at = excluded.updated_at`
+             ON CONFLICT(ext_id) DO UPDATE SET token = excluded.token, updated_at = excluded.updated_at`
         );
-        stmt.run([extId, hash, now, now]);
+        stmt.run([extId, raw, now, now]);
         stmt.free();
 
         await saveDb(githubToken, owner, repo, db);
@@ -113,21 +107,19 @@ export async function verifyTokenFor(githubToken, owner, repo, extId, inputToken
         }
         logStep(`校验扩展 ${extId} 的更新凭证`);
         const db = await loadDb(githubToken, owner, repo);
-        const stmt = db.prepare('SELECT token_hash FROM tokens WHERE ext_id = ?');
+        const stmt = db.prepare('SELECT token FROM update_tokens WHERE ext_id = ?');
         stmt.bind([extId]);
         let row = null;
         if (stmt.step()) row = stmt.getAsObject();
         stmt.free();
         db.close();
 
-        if (!row || !row.token_hash) {
+        if (!row || !row.token) {
             logWarn('该扩展没有登记的更新凭证 → 拒绝', `extId=${extId}`);
             return { ok: false, error: '该扩展没有登记的更新凭证，请先通过提交页面重新提交' };
         }
 
-        const expected = Buffer.from(row.token_hash, 'hex');
-        const actual = Buffer.from(sha256hex(inputToken), 'hex');
-        if (expected.length !== actual.length || !timingSafeEqual(actual, expected)) {
+        if (String(row.token) !== String(inputToken)) {
             logWarn('更新凭证不匹配 → 拒绝', `extId=${extId}`);
             return { ok: false, error: '更新凭证错误，请核对后重试' };
         }
