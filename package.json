@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "jsrsasign": "^11.1.0",
-    "capjs-core": "^0.1.2"
+    "capjs-core": "^0.1.2",
+    "sql.js": "^1.13.0"
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0"

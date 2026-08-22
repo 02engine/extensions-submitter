@@ -446,8 +446,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>提交扩展</h1>
-            <p class="subtitle">填写信息，自动生成文件并提交 Pull Request</p>
+            <div class="header-top" style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
+                <div>
+                    <h1>提交扩展</h1>
+                    <p class="subtitle">填写信息，自动生成文件并提交 Pull Request</p>
+                </div>
+                <a class="nav-link" href="/update.html" style="white-space:nowrap; font-size:14px; font-weight:500; color:var(--primary); text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-tertiary); transition:all 0.15s ease;" onmouseover="this.style.borderColor='var(--primary)';this.style.background='var(--primary-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg-tertiary)'">更新已有扩展 →</a>
+            </div>
         </div>
 
         <form id="submitForm">
@@ -990,11 +995,16 @@
                 }
 
                 setProgress(100);
-                showStatus(
-                    '提交成功！PR #' + result.pullRequestNumber + ' 已创建。',
-                    'success',
-                    result.pullRequestUrl
-                );
+                var successMsg = '提交成功！PR #' + result.pullRequestNumber + ' 已创建。';
+                if (result.updateToken) {
+                    successMsg += '<br><br>🔐 <b>请妥善保存你的扩展更新凭证（仅显示这一次）</b>：<br>' +
+                        '<code id="updateTokenText" style="display:block; margin-top:6px; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,0.08); font-size:13px; word-break:break-all; user-select:all;">' + result.updateToken + '</code>' +
+                        '<br>凭证已与扩展 ID 绑定，用于日后在 <a href="/update.html" target="_blank" style="text-decoration:underline;">更新页面</a> 修改该扩展。';
+                }
+                if (result.warning) {
+                    successMsg += '<br><br>⚠️ ' + result.warning;
+                }
+                showStatus(successMsg, 'success', result.pullRequestUrl);
                 btn.textContent = '提交成功，可再次提交';
 
             } catch (err) {

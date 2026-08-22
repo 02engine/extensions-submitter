@@ -21,3 +21,5 @@
 
 [functions]
   node_bundler = "esbuild"
+  # sql.js 运行时需要从 node_modules 读取 WASM 二进制，保持为外部模块
+  external_node_modules = ["sql.js"]

@@ -8,6 +8,7 @@
 scratch-ext-submit/
 ├── public/
 │   ├── index.html          # 前端表单页面（纯静态，无任何外部 CDN 依赖）
+│   ├── update.html         # 扩展更新页面（风格与主页面一致）
 │   └── assets/cap/          # Cap 无感人机验证 widget（自托管 JS + WASM，独立前缀避免与 API 冲突）
 │       ├── cap.min.js
 │       ├── cap_wasm_bg.wasm
@@ -16,7 +17,11 @@ scratch-ext-submit/
 │   ├── edge-functions/
 │   │   └── cap.js          # Cap 人机验证边缘函数（/cap/challenge、/cap/redeem）
 │   └── functions/
-│       └── submit.js       # Netlify Function（核心后端逻辑，受 Cap 验证门控）
+│       ├── _github.js      # 共享工具模块（日志、Cap 验证、GitHub API 封装）
+│       ├── _tokens.js      # 更新凭证库（sql.js SQLite，存于 TOKEN_REPO 仓库）
+│       ├── submit.js       # 提交扩展（创建 PR 后签发更新凭证）
+│       ├── query.js        # 查询扩展当前信息
+│       └── update.js       # 更新扩展（凭证校验后发送 PR）
 ├── netlify.toml            # Netlify 配置文件
 ├── package.json            # 依赖声明（仅 dev 依赖 netlify-cli）
 └── README.md
@@ -86,6 +91,28 @@ netlify dev
 `netlify dev` 会同时启动前端、Serverless 函数与边缘函数，本地同样支持 Netlify Blobs，可直接联调。
 
 > 依赖 Cap 官方库：后端 `capjs-core`（边缘函数/服务端校验）、前端 `cap-widget`（已自托管到 `public/assets/cap/`，版本 0.1.57，WASM 版本 0.0.7，均锁定以免上游变更影响生产）。
+
+## 🔄 扩展更新功能（更新凭证）
+
+提交扩展成功后，后端会用 `crypto.randomBytes(32)` 生成一个 **256 位高强度随机 token**（更新凭证），与扩展 ID 绑定后存入 **SQLite 数据库**，作为日后在线更新的唯一凭证。
+
+### 工作流程
+
+1. **签发**：每次通过主页提交（或更新）扩展成功并创建 PR 后，为该扩展 ID 签发新凭证。明文 token **只在提交成功的页面显示一次**，请立即保存。
+2. **存储**：数据库文件 `tokens.db` 存放在独立仓库中（环境变量 `TOKEN_REPO` 指定）。数据库只存 token 的 **SHA-256 哈希**，不存明文；泄露数据库也无法伪造凭证。每次读写时从 GitHub 下载 → 内存中用 sql.js 操作 → 整体写回仓库。
+3. **更新**：打开 `/update.html`（风格与主页面一致）：
+   - ① 输入扩展 ID 查询当前信息（自动回填表单）
+   - ② 修改名称/描述/作者/翻译等元数据；可选重新上传 JS、封面、文档、实例覆盖旧文件（留空保留），也可勾选移除文档/实例
+   - ③ 点击更新后在确认弹窗输入更新凭证 → 校验通过后按正常逻辑创建分支并发送 PR
+4. **安全门控**：查询与更新接口均受 Cap 人机验证保护；更新接口额外校验凭证（常量时间比较防时序攻击）。
+
+### 部署要求
+
+- 新增环境变量 **`TOKEN_REPO`**：仓库名即可（如 `ext-tokens`），须与 `GITHUB_OWNER` 同一账号。
+- 将 GitHub App 安装到 `TOKEN_REPO` 仓库（Contents 读写权限）——首次签发凭证时若 `tokens.db` 不存在会自动创建并提交。
+- 新增依赖 `sql.js`（纯 WASM SQLite），已在 `netlify.toml` 中声明为 external module。
+
+> ⚠️ 凭证丢失无法找回（服务端只存哈希）。丢失后只能等待维护者合并新 PR 时由系统重新签发。
 
 ## 🚀 完整部署步骤
 
@@ -222,6 +249,7 @@ netlify deploy --prod
 | `GITHUB_REPO` | `scratch-extensions` | 目标仓库名 |
 | `GITHUB_INSTALLATION_ID` | `55667788` | 第二步记下的安装 ID |
 | `CAP_SECRET` | `openssl rand -hex 32` 生成 | Cap 人机验证 HMAC 密钥（≥16 字节随机字符串） |
+| `TOKEN_REPO` | `ext-tokens` | 存放扩展更新凭证 SQLite 库的仓库名（与 GITHUB_OWNER 同账号） |
 
 3. 添加完后，回到站点面板 → **Deploys** → **Trigger deploy** → **Deploy site**
    - 必须重新部署才能让环境变量生效！

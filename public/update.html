@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scratch 扩展更新工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #00baad;
+            --primary-hover: #00a89c;
+            --primary-light: rgba(0, 186, 173, 0.08);
+
+            --bg-primary: #f7f9f4;
+            --bg-secondary: #eef2e8;
+            --bg-tertiary: #ffffff;
+            --bg-input: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #515154;
+            --text-tertiary: #86868b;
+            --text-quaternary: #aeaeb2;
+            --border: #d8ddd0;
+            --border-light: #e5ebe0;
+
+            --success: #34c759;
+            --warning: #b8860b;
+            --error: #d93025;
+            --error-bg: #fef2f2;
+            --success-bg: #f0fdf4;
+            --info-bg: #f0f9ff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1d1a;
+                --bg-secondary: #222522;
+                --bg-tertiary: #2a2d2a;
+                --bg-input: #2a2d2a;
+                --text-primary: #f5f5f7;
+                --text-secondary: #a1a1a6;
+                --text-tertiary: #6e6e73;
+                --text-quaternary: #48484a;
+                --border: #3a3d3a;
+                --border-light: #2f322f;
+
+                --error-bg: #2d1b1b;
+                --success-bg: #1b2d1b;
+                --info-bg: #1b2d3a;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 60px 24px 80px;
+        }
+
+        .header {
+            margin-bottom: 48px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .nav-link {
+            white-space: nowrap;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--primary);
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            transition: all 0.15s ease;
+        }
+
+        .nav-link:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .section {
+            padding: 32px 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .section:last-of-type {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+        }
+
+        .section-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .toggle-btn {
+            font-size: 14px;
+            color: var(--primary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 0;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+
+        .toggle-btn:hover {
+            color: var(--primary-hover);
+        }
+
+        .collapsible {
+            overflow: hidden;
+            height: 0;
+            transition: height 0.3s ease-in-out;
+            will-change: height;
+        }
+
+        .collapsible-inner {
+            padding-bottom: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            letter-spacing: -0.01em;
+        }
+
+        .required {
+            color: var(--error);
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.3s ease;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 68px;
+        }
+
+        input:disabled,
+        textarea:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            display: none;
+        }
+
+        .file-input-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 1.5px dashed var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .file-input-label:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .file-input-label.has-file {
+            border-style: solid;
+            border-color: var(--primary);
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .image-preview {
+            margin-top: 12px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--bg-secondary);
+        }
+
+        .image-preview img {
+            width: 100%;
+            max-height: 220px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .image-info {
+            margin-top: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .image-info.ok { color: var(--success); }
+        .image-info.warn { color: var(--warning); }
+        .image-info.error { color: var(--error); }
+
+        .author-group {
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-tertiary);
+            margin-bottom: 12px;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        .author-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .author-header span {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .btn-remove {
+            background: none;
+            color: var(--error);
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 2px 6px;
+        }
+
+        .btn-remove:hover {
+            text-decoration: underline;
+        }
+
+        .btn-add {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            color: var(--primary);
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 0;
+        }
+
+        .btn-add:hover {
+            color: var(--primary-hover);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .query-row {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+        }
+
+        .query-row input {
+            flex: 1;
+        }
+
+        .btn-query {
+            padding: 10px 22px;
+            border-radius: 10px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.1s ease;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .btn-query:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+
+        .btn-query:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #editForm {
+            display: none;
+        }
+
+        #editForm.visible {
+            display: block;
+        }
+
+        .submit-area {
+            margin-top: 48px;
+        }
+
+        .btn-submit {
+            display: block;
+            width: 100%;
+            padding: 14px 24px;
+            border-radius: 12px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.1s ease;
+            font-family: inherit;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+
+        .btn-submit:active:not(:disabled) {
+            transform: scale(0.995);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background: var(--border-light);
+            border-radius: 2px;
+            margin-top: 16px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status-message {
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin-top: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .status-message.success {
+            display: block;
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .status-message.error {
+            display: block;
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        .status-message.loading {
+            display: block;
+            background: var(--info-bg);
+            color: #0369a1;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .status-message.loading {
+                color: #5ac8fa;
+            }
+        }
+
+        .status-message a {
+            color: inherit;
+            text-decoration: underline;
+            word-break: break-all;
+        }
+
+        /* ---- 确认弹窗 ---- */
+        .modal-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 100;
+        }
+
+        .modal-mask.visible {
+            display: flex;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 440px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .modal p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn-secondary {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-tertiary);
+        }
+
+        .modal .btn-primary {
+            flex: 1;
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s ease;
+        }
+
+        .modal .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+
+        .modal .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 40px 20px 60px;
+            }
+
+            h1 {
+                font-size: 26px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            .section {
+                padding: 28px 0;
+            }
+
+            .query-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-top">
+                <div>
+                    <h1>更新扩展</h1>
+                    <p class="subtitle">输入扩展 ID 查询当前信息，修改后使用更新凭证提交 Pull Request</p>
+                </div>
+                <a class="nav-link" href="/">前往提交页 →</a>
+            </div>
+        </div>
+
+        <!-- 第一步：查询 -->
+        <div class="section">
+            <h2 class="section-title">① 查询扩展</h2>
+            <div class="form-group">
+                <label>扩展 ID <span class="required">*</span></label>
+                <span class="help-text" style="margin-top:0; margin-bottom:6px; display:block;">即提交时填写的扩展 ID（通常与 slug 相同）</span>
+                <div class="query-row">
+                    <input type="text" id="queryExtId" placeholder="myAwesomeExtension" autocomplete="off">
+                    <button type="button" class="btn-query" id="queryBtn">查询当前信息</button>
+                </div>
+            </div>
+            <div class="status-message" id="queryStatus"></div>
+        </div>
+
+        <!-- 第二步：编辑 -->
+        <form id="editForm">
+            <!-- 基本信息 -->
+            <div class="section">
+                <h2 class="section-title">② 编辑信息</h2>
+
+                <div class="form-group">
+                    <label>Slug（不可修改）</label>
+                    <input type="text" id="slug" disabled>
+                    <span class="help-text">文件路径由 slug 决定，暂不支持迁移</span>
+                </div>
+
+                <div class="form-group">
+                    <label>扩展名称 <span class="required">*</span></label>
+                    <input type="text" id="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label>扩展描述（英文） <span class="required">*</span></label>
+                    <textarea id="description" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>扩展 ID（不可修改）</label>
+                    <input type="text" id="extId" disabled>
+                    <span class="help-text">更新凭证与该 ID 绑定</span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>版本号</label>
+                        <input type="text" id="version" placeholder="留空则移除版本号">
+                    </div>
+                    <div class="form-group">
+                        <label>许可证</label>
+                        <input type="text" id="license" placeholder="留空则移除许可证">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 翻译信息 -->
+            <div class="section">
+                <div class="section-title-row">
+                    <h2 class="section-title" style="margin-bottom:0;">翻译信息</h2>
+                    <button type="button" class="toggle-btn" onclick="toggleSection(event, 'translations')">展开</button>
+                </div>
+                <div class="collapsible" id="translations">
+                    <div class="collapsible-inner">
+                        <div class="form-group">
+                            <label>中文名称</label>
+                            <input type="text" id="nameZh">
+                        </div>
+                        <div class="form-group">
+                            <label>英文名称</label>
+                            <input type="text" id="nameEn">
+                        </div>
+                        <div class="form-group">
+                            <label>中文描述</label>
+                            <textarea id="descZh"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>英文描述</label>
+                            <textarea id="descEn"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 作者信息 -->
+            <div class="section">
+                <h2 class="section-title">作者</h2>
+                <div id="authorsContainer"></div>
+                <button type="button" class="btn-add" onclick="addAuthor()">+ 添加作者</button>
+            </div>
+
+            <!-- 文件更新 -->
+            <div class="section">
+                <h2 class="section-title">文件（可选）</h2>
+                <p class="help-text" style="margin:-16px 0 20px;">不上传的文件将保留线上现有版本</p>
+
+                <div class="form-group">
+                    <label>扩展 JS 文件</label>
+                    <span class="help-text" style="margin-top:0; margin-bottom:6px; display:block;">文件名须为 {slug}.js，留空保留旧版</span>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="jsFile" accept=".js,application/javascript">
+                        <label for="jsFile" class="file-input-label">
+                            <span class="file-text">选择新的 .js 文件（可选）</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>封面图片</label>
+                    <span class="help-text" style="margin-top:0; margin-bottom:6px; display:block;">建议 2:1 比例，不匹配将自动居中裁剪；留空保留旧图</span>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="coverImage" accept="image/*">
+                        <label for="coverImage" class="file-input-label">
+                            <span class="file-text">选择新封面图片（可选）</span>
+                        </label>
+                    </div>
+                    <div class="image-preview" id="imagePreview"></div>
+                    <div class="image-info" id="imageInfo"></div>
+                </div>
+
+                <div class="form-group">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="docsFile" accept=".html,text/html">
+                        <label for="docsFile" class="file-input-label">
+                            <span class="file-text">选择新文档 HTML 文件（可选）</span>
+                        </label>
+                    </div>
+                    <div class="checkbox-group" style="margin-top:10px;">
+                        <input type="checkbox" id="removeDocs">
+                        <label for="removeDocs">移除现有文档</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="sampleFile" accept=".sb3,application/zip">
+                        <label for="sampleFile" class="file-input-label">
+                            <span class="file-text">选择新实例 .sb3 文件（可选）</span>
+                        </label>
+                    </div>
+                    <div class="checkbox-group" style="margin-top:10px;">
+                        <input type="checkbox" id="removeSamples">
+                        <label for="removeSamples">移除现有实例作品</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 提交 -->
+            <div class="submit-area">
+                <button type="submit" class="btn-submit" id="submitBtn">请求更新扩展</button>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="status-message" id="statusMessage"></div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 确认弹窗：输入更新凭证 -->
+    <div class="modal-mask" id="modalMask">
+        <div class="modal">
+            <h3>🔐 确认更新</h3>
+            <p>请输入提交扩展时获得的<b>更新凭证（token）</b>以确认操作。凭证将与扩展 ID <span id="modalExtId" style="font-family:monospace;"></span> 的记录进行校验。</p>
+            <input type="password" id="tokenInput" placeholder="粘贴更新凭证 token" autocomplete="off">
+            <div class="status-message" id="modalStatus" style="margin-top:12px;"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="modalCancel">取消</button>
+                <button type="button" class="btn-primary" id="modalConfirm">确认并发送 PR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cap 无感人机验证：自托管 widget，零外部 CDN 依赖 -->
+    <script>
+        window.CAP_CUSTOM_WASM_URL = '/assets/cap/cap_wasm_bg.wasm';
+        window.CAP_PAKO_URL = '/assets/cap/pako_inflate.min.js';
+        window.CAP_DISABLE_HAPTICS = true;
+    </script>
+    <script src="/assets/cap/cap.min.js"></script>
+
+    <script>
+        'use strict';
+
+        var currentExtId = null; // 查询成功后记录的扩展 ID
+
+        function $(id) { return document.getElementById(id); }
+
+        function toggleSection(evt, id) {
+            if (evt) {
+                evt.preventDefault();
+                evt.stopPropagation();
+            }
+            var el = $(id);
+            var btn = evt ? evt.target : document.querySelector('[onclick*="' + id + '"]');
+            var isOpen = el.classList.contains('open');
+            if (isOpen) {
+                el.style.height = '0px';
+                el.classList.remove('open');
+                if (btn) btn.textContent = '展开';
+            } else {
+                el.classList.add('open');
+                el.style.height = el.scrollHeight + 'px';
+                if (btn) btn.textContent = '收起';
+            }
+        }
+
+        function showStatus(elId, msg, type, link) {
+            var el = $(elId);
+            el.className = 'status-message ' + type;
+            el.innerHTML = link ? msg + '<br><a href="' + link + '" target="_blank">' + link + '</a>' : msg;
+        }
+
+        function setProgress(pct) {
+            $('progressBar').classList.add('active');
+            $('progressFill').style.width = pct + '%';
+        }
+
+        function clearProgress() {
+            $('progressBar').classList.remove('active');
+            $('progressFill').style.width = '0%';
+        }
+
+        // ---- Cap 人机验证 ----
+        function runCapChallenge() {
+            return new Promise(function(resolve, reject) {
+                if (typeof window.Cap !== 'function') {
+                    reject(new Error('人机验证组件加载失败，请刷新页面'));
+                    return;
+                }
+                var cap = new window.Cap({
+                    apiEndpoint: '/cap/'
+                });
+                cap.solve().then(function(res) {
+                    if (res && res.token) resolve(res.token);
+                    else reject(new Error('人机验证未返回凭证'));
+                }).catch(function(err) {
+                    var msg = (err && err.message) ? err.message : '未知错误';
+                    reject(new Error('人机验证未通过：' + msg));
+                });
+            });
+        }
+
+        async function callFunction(name, payload) {
+            var resp = await fetch('/.netlify/functions/' + name, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            var rawText = await resp.text();
+            var result = {};
+            try { result = rawText ? JSON.parse(rawText) : {}; }
+            catch (e) {
+                result = { error: '服务器返回了无法解析的内容' + (resp.ok ? '' : '（HTTP ' + resp.status + '）') };
+            }
+            if (!resp.ok || result.error) {
+                throw new Error(result.error || ('请求失败（HTTP ' + resp.status + '）'));
+            }
+            return result;
+        }
+
+        // ---- 作者管理 ----
+        var authorCount = 0;
+        function addAuthor(name, link) {
+            if (authorCount >= 5) {
+                alert('最多添加 5 位作者');
+                return;
+            }
+            var container = $('authorsContainer');
+            var idx = authorCount;
+            var div = document.createElement('div');
+            div.className = 'author-group';
+            div.dataset.index = idx;
+            div.innerHTML =
+                '<div class="author-header">' +
+                    '<span>作者 ' + (idx + 1) + '</span>' +
+                    '<button type="button" class="btn-remove" onclick="removeAuthor(' + idx + ')">删除</button>' +
+                '</div>' +
+                '<div class="form-group">' +
+                    '<label>名称 <span class="required">*</span></label>' +
+                    '<input type="text" class="author-name" placeholder="作者名称" required>' +
+                '</div>' +
+                '<div class="form-group">' +
+                    '<label>链接</label>' +
+                    '<input type="url" class="author-link" placeholder="https://github.com/xxx">' +
+                '</div>';
+            container.appendChild(div);
+            div.querySelector('.author-name').value = name || '';
+            div.querySelector('.author-link').value = link || '';
+            authorCount++;
+        }
+
+        window.removeAuthor = function(idx) {
+            var el = document.querySelector('.author-group[data-index="' + idx + '"]');
+            if (el) el.remove();
+        };
+
+        function collectAuthors() {
+            var authors = [];
+            var groups = document.querySelectorAll('.author-group');
+            for (var i = 0; i < groups.length; i++) {
+                var g = groups[i];
+                var aname = g.querySelector('.author-name').value.trim();
+                var alink = g.querySelector('.author-link').value.trim();
+                if (aname) {
+                    var a = { name: aname };
+                    if (alink) a.link = alink;
+                    authors.push(a);
+                }
+            }
+            return authors;
+        }
+
+        // ---- 文件选择 UI ----
+        function setupFileInput(inputId, defaultText) {
+            var input = $(inputId);
+            var label = input.nextElementSibling;
+            var textEl = label.querySelector('.file-text');
+            input.addEventListener('change', function() {
+                if (input.files.length > 0) {
+                    label.classList.add('has-file');
+                    textEl.textContent = input.files[0].name;
+                } else {
+                    label.classList.remove('has-file');
+                    textEl.textContent = defaultText;
+                }
+            });
+        }
+
+        setupFileInput('jsFile', '选择新的 .js 文件（可选）');
+        setupFileInput('docsFile', '选择新文档 HTML 文件（可选）');
+        setupFileInput('sampleFile', '选择新实例 .sb3 文件（可选）');
+
+        // 封面图预览
+        document.getElementById('coverImage').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            var label = $('coverImage').nextElementSibling;
+            var textEl = label.querySelector('.file-text');
+            var preview = $('imagePreview');
+            var info = $('imageInfo');
+
+            if (!file) {
+                label.classList.remove('has-file');
+                textEl.textContent = '选择新封面图片（可选）';
+                preview.innerHTML = '';
+                info.textContent = '';
+                return;
+            }
+
+            label.classList.add('has-file');
+            textEl.textContent = file.name;
+
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                var img = new Image();
+                img.onload = function() {
+                    var ratio = img.width / img.height;
+                    preview.innerHTML = '<img src="' + ev.target.result + '" alt="preview">';
+                    if (Math.abs(ratio - 2) < 0.05) {
+                        info.className = 'image-info ok';
+                        info.textContent = '比例正确（' + img.width + 'x' + img.height + '）— 无需裁剪';
+                    } else {
+                        info.className = 'image-info warn';
+                        info.textContent = '当前比例 ' + ratio.toFixed(2) + ':1，目标 2:1。提交时将自动居中裁剪。';
+                    }
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // ---- 第一步：查询扩展当前信息 ----
+        $('queryBtn').addEventListener('click', async function() {
+            var btn = this;
+            var qid = $('queryExtId').value.trim();
+            if (!qid) {
+                showStatus('queryStatus', '请先输入扩展 ID', 'error');
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = '查询中...';
+            try {
+                showStatus('queryStatus', '正在进行人机验证...', 'loading');
+                var capToken = await runCapChallenge();
+                showStatus('queryStatus', '正在查询...', 'loading');
+                var result = await callFunction('query', { extId: qid, capToken: capToken });
+                var ext = result.extension;
+                currentExtId = ext.id || ext.slug;
+
+                // 回填表单
+                $('slug').value = ext.slug || '';
+                $('extId').value = currentExtId;
+                $('name').value = ext.name || '';
+                $('description').value = ext.description || '';
+                $('version').value = ext.version || '';
+                $('license').value = ext.license || '';
+                var nt = (ext.nameTranslations) || {};
+                var dt = (ext.descriptionTranslations) || {};
+                $('nameZh').value = nt['zh-cn'] || '';
+                $('nameEn').value = nt['en'] || '';
+                $('descZh').value = dt['zh-cn'] || '';
+                $('descEn').value = dt['en'] || '';
+
+                // 重建作者
+                $('authorsContainer').innerHTML = '';
+                authorCount = 0;
+                var by = Array.isArray(ext.by) ? ext.by : [];
+                if (by.length === 0) addAuthor('', '');
+                for (var i = 0; i < by.length; i++) {
+                    addAuthor(by[i].name || '', by[i].link || '');
+                }
+
+                showStatus('queryStatus', '已加载「' + (ext.name || ext.slug) + '」的当前信息，请在下方修改。', 'success');
+                $('editForm').classList.add('visible');
+                $('editForm').scrollIntoView({ behavior: 'smooth' });
+            } catch (err) {
+                console.error(err);
+                showStatus('queryStatus', '查询失败：' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '查询当前信息';
+            }
+        });
+
+        // ---- 第二步：点击更新 → 弹出确认框 ----
+        var pendingPayload = null;
+
+        document.getElementById('editForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            try {
+                var authors = collectAuthors();
+                if (authors.length === 0) throw new Error('至少需要一位作者');
+
+                pendingPayload = {
+                    name: $('name').value.trim(),
+                    description: $('description').value.trim(),
+                    version: $('version').value.trim() || undefined,
+                    license: $('license').value.trim() || undefined,
+                    authors: authors,
+                    removeDocs: $('removeDocs').checked,
+                    removeSamples: $('removeSamples').checked
+                };
+
+                if (!pendingPayload.name || !pendingPayload.description) {
+                    throw new Error('名称与描述为必填项');
+                }
+
+                // 翻译
+                var nameZh = $('nameZh').value.trim(), nameEn = $('nameEn').value.trim();
+                var descZh = $('descZh').value.trim(), descEn = $('descEn').value.trim();
+                if (nameZh || nameEn || descZh || descEn) {
+                    pendingPayload.translations = {};
+                    if (nameZh || nameEn) {
+                        pendingPayload.translations.nameTranslations = {};
+                        if (nameZh) pendingPayload.translations.nameTranslations['zh-cn'] = nameZh;
+                        if (nameEn) pendingPayload.translations.nameTranslations['en'] = nameEn;
+                    }
+                    if (descZh || descEn) {
+                        pendingPayload.translations.descriptionTranslations = {};
+                        if (descZh) pendingPayload.translations.descriptionTranslations['zh-cn'] = descZh;
+                        if (descEn) pendingPayload.translations.descriptionTranslations['en'] = descEn;
+                    }
+                }
+            } catch (err) {
+                showStatus('statusMessage', '错误：' + err.message, 'error');
+                return;
+            }
+
+            $('modalExtId').textContent = currentExtId || '';
+            $('tokenInput').value = '';
+            showStatus('modalStatus', '', '');
+            $('modalMask').classList.add('visible');
+            $('tokenInput').focus();
+        });
+
+        $('modalCancel').addEventListener('click', function() {
+            $('modalMask').classList.remove('visible');
+            pendingPayload = null;
+        });
+
+        // ---- 第三步：确认 → 校验凭证并发送 PR ----
+        $('modalConfirm').addEventListener('click', async function() {
+            var btn = this;
+            var updateToken = $('tokenInput').value.trim();
+            if (!updateToken) {
+                showStatus('modalStatus', '请输入更新凭证（token）', 'error');
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = '处理中...';
+            try {
+                showStatus('modalStatus', '正在进行人机验证...', 'loading');
+
+                var jsFile = $('jsFile').files[0];
+                var coverFile = $('coverImage').files[0];
+                var docsFile = $('removeDocs').checked ? null : $('docsFile').files[0];
+                var sampleFile = $('removeSamples').checked ? null : $('sampleFile').files[0];
+
+                var payload = Object.assign({}, pendingPayload);
+                payload.extId = currentExtId;
+                payload.updateToken = updateToken;
+
+                if (jsFile) {
+                    if (jsFile.name !== $('slug').value + '.js') {
+                        throw new Error('JS 文件名必须为 ' + $('slug').value + '.js，当前为 ' + jsFile.name);
+                    }
+                    setProgress(20);
+                    payload.jsContent = await fileToBase64(jsFile);
+                }
+
+                if (coverFile) {
+                    setProgress(35);
+                    var cropped = await cropImageTo2x1(coverFile);
+                    payload.coverExt = (cropped.name.split('.').pop()) || 'png';
+                    payload.coverContent = await fileToBase64(cropped);
+                }
+
+                if (!$('removeDocs').checked && docsFile) {
+                    payload.docsContent = await fileToBase64(docsFile);
+                }
+                if (!$('removeSamples').checked && sampleFile) {
+                    payload.sampleContent = await fileToBase64(sampleFile);
+                }
+
+                var capToken = await runCapChallenge();
+                payload.capToken = capToken;
+
+                setProgress(60);
+                showStatus('modalStatus', '正在提交更新...', 'loading');
+                var result = await callFunction('update', payload);
+
+                setProgress(100);
+                $('modalMask').classList.remove('visible');
+                showStatus('statusMessage',
+                    '更新成功！PR #' + result.pullRequestNumber + ' 已创建，等待维护者审查合并。',
+                    'success',
+                    result.pullRequestUrl
+                );
+                clearProgress();
+            } catch (err) {
+                console.error(err);
+                showStatus('modalStatus', '错误：' + err.message, 'error');
+                showStatus('statusMessage', '错误：' + err.message, 'error');
+                clearProgress();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '确认并发送 PR';
+            }
+        });
+
+        // 回车键在弹窗中直接确认
+        $('tokenInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                $('modalConfirm').click();
+            }
+        });
+    </script>
+</body>
+</html>
+
+        // ---- 图片裁剪为 2:1 ----
+        function cropImageTo2x1(file) {
+            return new Promise(function(resolve) {
+                var img = new Image();
+                img.onload = function() {
+                    var targetRatio = 2;
+                    var currentRatio = img.width / img.height;
+                    var sx, sy, sw, sh;
+                    if (currentRatio > targetRatio) {
+                        sh = img.height; sw = img.height * targetRatio;
+                        sx = (img.width - sw) / 2; sy = 0;
+                    } else {
+                        sw = img.width; sh = img.width / targetRatio;
+                        sx = 0; sy = (img.height - sh) / 2;
+                    }
+                    var canvas = document.createElement('canvas');
+                    canvas.width = sw; canvas.height = sh;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+                    canvas.toBlob(function(blob) {
+                        var baseName = file.name.replace(/\.[^.]+$/, '');
+                        resolve(new File([blob], baseName + '.png', { type: 'image/png' }));
+                    }, 'image/png');
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // ---- 文件转 base64 ----
+        function fileToBase64(file) {
+            return new Promise(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function() { resolve(reader.result.split(',')[1]); };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
